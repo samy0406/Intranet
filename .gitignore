@@ -1,0 +1,12 @@
+# 依存パッケージ（npm installで自動生成される）
+node_modules/
+
+# Next.jsのビルドファイル
+.next/
+
+# 環境変数ファイル（パスワード等が入るため）
+.env
+.env.local
+
+# アップロードファイル
+uploads/
