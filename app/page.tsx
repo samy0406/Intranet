@@ -92,6 +92,11 @@ export default function HomePage() {
     e.preventDefault();
     setStatus("loading");
     setErrorMsg("");
+    if (!screenshot) {
+      setErrorMsg("スクリーンショットを貼り付けてください");
+      setStatus("error");
+      return; // return でここで処理を止める（APIに送信しない）
+    }
 
     const data = new FormData();
     Object.entries(form).forEach(([key, val]) => data.append(key, val));
@@ -136,7 +141,7 @@ export default function HomePage() {
             <Field label="お名前" required>
               <input type="text" name="name" value={form.name} onChange={handleChange} placeholder="山田 太郎" required className={inputClass} />
             </Field>
-            <Field label="部署">
+            <Field label="部署" required>
               <input type="text" name="department" value={form.department} onChange={handleChange} placeholder="例：包装課" className={inputClass} />
             </Field>
           </div>
@@ -145,7 +150,7 @@ export default function HomePage() {
           <hr className="border-slate-100" />
 
           {/* ── 表題 ── */}
-          <Field label="表題" required hint="〇〇の依頼">
+          <Field label="表題" required>
             <input type="text" name="title" value={form.title} onChange={handleChange} placeholder="〇〇の依頼" required className={inputClass} />
           </Field>
 
@@ -176,17 +181,17 @@ export default function HomePage() {
           </Field>
 
           {/* ── 画面の開き方 ── */}
-          <Field label="画面の開き方（経路）" hint="例：MCFRAME実運用⇒４製造管理⇒製造計画⇒指図済/着手中にチェック⇒検索(F1)">
+          <Field label="画面の開き方（経路）">
             <textarea name="screenPath" value={form.screenPath} onChange={handleChange} rows={5} placeholder="例：MCFRAME実運用⇒４製造管理⇒製造計画⇒指図済/着手中にチェック⇒検索(F1)" className={`${inputClass} resize-none`} />
           </Field>
 
           {/* ── 問い合わせ経緯 ── */}
-          <Field label="問い合わせ経緯" required hint="例：○○の作業していたところ、○○の処理をしてうまくいかなかった。">
+          <Field label="問い合わせ経緯" required>
             <textarea name="message" value={form.message} onChange={handleChange} rows={6} required placeholder="例：○○の作業をしていたところ、○○の処理をしてうまくいかなかった。" className={`${inputClass} resize-none`} />
           </Field>
 
           {/* ── スクリーンショット（Ctrl+V） ── */}
-          <Field label="スクリーンショット" hint="Ctrl + V で貼り付け">
+          <Field label="スクリーンショット" required hint="Ctrl + V で貼り付け">
             <div
               onPaste={handlePaste}
               tabIndex={0} // tabIndex=0 でキーボードフォーカスを受け取れるようにする（Ctrl+Vに必要）
