@@ -2,9 +2,11 @@
 
 import { useState, useRef, DragEvent, ChangeEvent, FormEvent, ClipboardEvent } from "react";
 import { useRouter } from "next/navigation";
-import { InquiryFormData, ApiResponse, URGENCY_OPTIONS } from "@/types/inquiry";
+import { InquiryFormData, InquiryFormErrors, ApiResponse, URGENCY_OPTIONS } from "@/types/inquiry";
+import { validateInquiryForm } from "@/lib/validate";
+import { error } from "console";
 
-type Status = "idle" | "loading" | "error";
+type Status = "idle" | "loading";
 
 // 緊急度ごとのバッジ色
 const URGENCY_COLOR: Record<string, string> = {
@@ -28,8 +30,8 @@ export default function HomePage() {
   const [screenshot, setScreenshot] = useState<File | null>(null); // Ctrl+V 貼り付け画像
   const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null); // プレビュー用URL
   const [status, setStatus] = useState<Status>("idle");
-  const [errorMsg, setErrorMsg] = useState<string>("");
   const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [errors, setErrors] = useState<InquiryFormErrors>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
@@ -90,18 +92,20 @@ export default function HomePage() {
   // ── フォーム送信 ──────────────────────────────────
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    // バリデーションを一括実行（スクリーンショットも含む）
+    const newErrors = validateInquiryForm(form, screenshot);
+    setErrors(newErrors);
+
+    // エラーがあれば止める
+    if (Object.keys(newErrors).length > 0) return;
+
+    // ここまで来たら全項目OK → 送信開始
     setStatus("loading");
-    setErrorMsg("");
-    if (!screenshot) {
-      setErrorMsg("スクリーンショットを貼り付けてください");
-      setStatus("error");
-      return; // return でここで処理を止める（APIに送信しない）
-    }
 
     const data = new FormData();
     Object.entries(form).forEach(([key, val]) => data.append(key, val));
     // Object.entries = オブジェクトを [key, value] のペア配列に変換してループ
-
     if (file) data.append("file", file);
     if (screenshot) data.append("screenshot", screenshot);
 
@@ -111,12 +115,10 @@ export default function HomePage() {
       if (json.status === "ok") {
         router.push("/done");
       } else {
-        setErrorMsg(json.message);
-        setStatus("error");
+        setErrors({ resolution: json.message });
       }
     } catch {
-      setErrorMsg("通信エラーが発生しました。");
-      setStatus("error");
+      setErrors({ resolution: "通信エラーが発生しました" });
     }
   };
 
@@ -138,10 +140,10 @@ export default function HomePage() {
         <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 sm:p-8 space-y-8">
           {/* ── 名前・部署 ── */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="お名前" required>
+            <Field label="お名前" required error={errors.name}>
               <input type="text" name="name" value={form.name} onChange={handleChange} placeholder="山田 太郎" required className={inputClass} />
             </Field>
-            <Field label="部署" required>
+            <Field label="部署" required error={errors.department}>
               <input type="text" name="department" value={form.department} onChange={handleChange} placeholder="例：包装課" className={inputClass} />
             </Field>
           </div>
@@ -150,7 +152,7 @@ export default function HomePage() {
           <hr className="border-slate-100" />
 
           {/* ── 表題 ── */}
-          <Field label="表題" required>
+          <Field label="表題" required error={errors.title}>
             <input type="text" name="title" value={form.title} onChange={handleChange} placeholder="〇〇の依頼" required className={inputClass} />
           </Field>
 
@@ -186,12 +188,12 @@ export default function HomePage() {
           </Field>
 
           {/* ── 問い合わせ経緯 ── */}
-          <Field label="問い合わせ経緯" required>
+          <Field label="問い合わせ経緯" required error={errors.message}>
             <textarea name="message" value={form.message} onChange={handleChange} rows={6} required placeholder="例：○○の作業をしていたところ、○○の処理をしてうまくいかなかった。" className={`${inputClass} resize-none`} />
           </Field>
 
           {/* ── スクリーンショット（Ctrl+V） ── */}
-          <Field label="スクリーンショット" required hint="Ctrl + V で貼り付け">
+          <Field label="スクリーンショット" required hint="Ctrl + V で貼り付け" error={errors.screenshot}>
             <div
               onPaste={handlePaste}
               tabIndex={0} // tabIndex=0 でキーボードフォーカスを受け取れるようにする（Ctrl+Vに必要）
@@ -219,7 +221,7 @@ export default function HomePage() {
           </Field>
 
           {/* ── 対応希望内容 ── */}
-          <Field label="対応希望内容（最終的にどうなれば解決か）" required hint="データ修正の場合、どの項目をどう修正すればいいかなるべく詳細に">
+          <Field label="対応希望内容（最終的にどうなれば解決か）" required hint="データ修正の場合、どの項目をどう修正すればいいかなるべく詳細に" error={errors.resolution}>
             <textarea name="resolution" value={form.resolution} onChange={handleChange} rows={6} required placeholder="例：〇〇画面の△△項目を「×××」から「○○○」に修正していただきたい。" className={`${inputClass} resize-none`} />
           </Field>
 
@@ -260,9 +262,6 @@ export default function HomePage() {
             </div>
           </Field>
 
-          {/* ── エラー ── */}
-          {status === "error" && <div className="bg-rose-50 border border-rose-200 text-rose-600 text-sm rounded-xl px-4 py-3">⚠️ {errorMsg}</div>}
-
           {/* ── 送信ボタン ── */}
           <button
             type="submit"
@@ -289,9 +288,10 @@ type FieldProps = {
   label: string;
   required?: boolean;
   hint?: string; // 注釈テキスト（グレーの小さい文字）
+  error?: string; // エラーメッセージ
   children: React.ReactNode;
 };
-function Field({ label, required, hint, children }: FieldProps) {
+function Field({ label, required, hint, error, children }: FieldProps) {
   return (
     <div>
       <div className="flex items-baseline gap-2 mb-1.5">
@@ -302,6 +302,7 @@ function Field({ label, required, hint, children }: FieldProps) {
         {hint && <span className="text-sm text-slate-300 truncate">{hint}</span>}
       </div>
       {children}
+      {error && <p className="text-rose-500 text-xs mt-1">{error}</p>}
     </div>
   );
 }
