@@ -12,6 +12,10 @@ export function validateInquiryForm(form: InquiryFormData, screenshot: File | nu
     errors.name = "お名前を入力してください";
   }
 
+  if (!form.department.trim()) {
+    errors.department = "部署を入力してください";
+  }
+
   if (!form.title.trim()) {
     errors.title = "表題を入力してください";
   }
@@ -32,7 +36,7 @@ export function validateInquiryForm(form: InquiryFormData, screenshot: File | nu
     errors.resolution = "1000文字以内で入力してください";
   }
 
-  if (screenshot) {
+  if (!screenshot) {
     errors.screenshot = "スクリーンショットを貼り付けてください";
   }
 

@@ -116,9 +116,11 @@ export default function HomePage() {
         router.push("/done");
       } else {
         setErrors({ resolution: json.message });
+        setStatus("idle");
       }
     } catch {
       setErrors({ resolution: "通信エラーが発生しました" });
+      setStatus("idle");
     }
   };
 
@@ -141,7 +143,7 @@ export default function HomePage() {
           {/* ── 名前・部署 ── */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="お名前" required error={errors.name}>
-              <input type="text" name="name" value={form.name} onChange={handleChange} placeholder="山田 太郎" required className={inputClass} />
+              <input type="text" name="name" value={form.name} onChange={handleChange} placeholder="山田 太郎" className={inputClass} />
             </Field>
             <Field label="部署" required error={errors.department}>
               <input type="text" name="department" value={form.department} onChange={handleChange} placeholder="例：包装課" className={inputClass} />
@@ -153,14 +155,14 @@ export default function HomePage() {
 
           {/* ── 表題 ── */}
           <Field label="表題" required error={errors.title}>
-            <input type="text" name="title" value={form.title} onChange={handleChange} placeholder="〇〇の依頼" required className={inputClass} />
+            <input type="text" name="title" value={form.title} onChange={handleChange} placeholder="〇〇の依頼" className={inputClass} />
           </Field>
 
           {/* ── 緊急度 ── */}
-          <Field label="緊急度" required>
+          <Field label="緊急度" required error={errors.urgency}>
             {/* セレクトボックス（プルダウン） */}
             <div className="relative">
-              <select name="urgency" value={form.urgency} onChange={handleChange} required className={`${inputClass} appearance-none pr-10 cursor-pointer`}>
+              <select name="urgency" value={form.urgency} onChange={handleChange} className={`${inputClass} appearance-none pr-10 cursor-pointer`}>
                 <option value="" disabled>
                   選択してください
                 </option>
@@ -189,7 +191,7 @@ export default function HomePage() {
 
           {/* ── 問い合わせ経緯 ── */}
           <Field label="問い合わせ経緯" required error={errors.message}>
-            <textarea name="message" value={form.message} onChange={handleChange} rows={6} required placeholder="例：○○の作業をしていたところ、○○の処理をしてうまくいかなかった。" className={`${inputClass} resize-none`} />
+            <textarea name="message" value={form.message} onChange={handleChange} rows={6} placeholder="例：○○の作業をしていたところ、○○の処理をしてうまくいかなかった。" className={`${inputClass} resize-none`} />
           </Field>
 
           {/* ── スクリーンショット（Ctrl+V） ── */}
@@ -222,7 +224,7 @@ export default function HomePage() {
 
           {/* ── 対応希望内容 ── */}
           <Field label="対応希望内容（最終的にどうなれば解決か）" required hint="データ修正の場合、どの項目をどう修正すればいいかなるべく詳細に" error={errors.resolution}>
-            <textarea name="resolution" value={form.resolution} onChange={handleChange} rows={6} required placeholder="例：〇〇画面の△△項目を「×××」から「○○○」に修正していただきたい。" className={`${inputClass} resize-none`} />
+            <textarea name="resolution" value={form.resolution} onChange={handleChange} rows={6} placeholder="例：〇〇画面の△△項目を「×××」から「○○○」に修正していただきたい。" className={`${inputClass} resize-none`} />
           </Field>
 
           {/* ── ファイル添付 ── */}
