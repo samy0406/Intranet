@@ -98,7 +98,23 @@ export default function HomePage() {
     setErrors(newErrors);
 
     // エラーがあれば止める
-    if (Object.keys(newErrors).length > 0) return;
+    if (Object.keys(newErrors).length > 0) {
+      // エラーのキーの順番（画面の上から順に定義）
+      const fieldOrder: (keyof InquiryFormErrors)[] = ["name", "department", "title", "urgency", "message", "screenshot", "resolution"];
+
+      // 最初にエラーがある項目を探す
+      const firstErrorKey = fieldOrder.find((key) => newErrors[key]);
+
+      if (firstErrorKey) {
+        setTimeout(() => {
+          // id="field-xxx" の要素を探してスクロール＋フォーカス
+          const el = document.getElementById(`field-${firstErrorKey}`);
+          el?.scrollIntoView({ behavior: "smooth", block: "center" });
+          el?.focus();
+        }, 0);
+      }
+      return;
+    }
 
     // ここまで来たら全項目OK → 送信開始
     setStatus("loading");
@@ -142,10 +158,10 @@ export default function HomePage() {
         <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 sm:p-8 space-y-8">
           {/* ── 名前・部署 ── */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="お名前" required error={errors.name}>
+            <Field label="お名前" required error={errors.name} id="field-name">
               <input type="text" name="name" value={form.name} onChange={handleChange} placeholder="山田 太郎" className={inputClass} />
             </Field>
-            <Field label="部署" required error={errors.department}>
+            <Field label="部署" required error={errors.department} id="field-department">
               <input type="text" name="department" value={form.department} onChange={handleChange} placeholder="例：包装課" className={inputClass} />
             </Field>
           </div>
@@ -154,12 +170,12 @@ export default function HomePage() {
           <hr className="border-slate-100" />
 
           {/* ── 表題 ── */}
-          <Field label="表題" required error={errors.title}>
+          <Field label="表題" required error={errors.title} id="field-title">
             <input type="text" name="title" value={form.title} onChange={handleChange} placeholder="〇〇の依頼" className={inputClass} />
           </Field>
 
           {/* ── 緊急度 ── */}
-          <Field label="緊急度" required error={errors.urgency}>
+          <Field label="緊急度" required error={errors.urgency} id="field-urgency">
             {/* セレクトボックス（プルダウン） */}
             <div className="relative">
               <select name="urgency" value={form.urgency} onChange={handleChange} className={`${inputClass} appearance-none pr-10 cursor-pointer`}>
@@ -190,12 +206,12 @@ export default function HomePage() {
           </Field>
 
           {/* ── 問い合わせ経緯 ── */}
-          <Field label="問い合わせ経緯" required error={errors.message}>
+          <Field label="問い合わせ経緯" required error={errors.message} id="field-message">
             <textarea name="message" value={form.message} onChange={handleChange} rows={6} placeholder="例：○○の作業をしていたところ、○○の処理をしてうまくいかなかった。" className={`${inputClass} resize-none`} />
           </Field>
 
           {/* ── スクリーンショット（Ctrl+V） ── */}
-          <Field label="スクリーンショット" required hint="Ctrl + V で貼り付け" error={errors.screenshot}>
+          <Field label="スクリーンショット" required hint="Ctrl + V で貼り付け" error={errors.screenshot} id="field-screenshot">
             <div
               onPaste={handlePaste}
               tabIndex={0} // tabIndex=0 でキーボードフォーカスを受け取れるようにする（Ctrl+Vに必要）
@@ -223,7 +239,7 @@ export default function HomePage() {
           </Field>
 
           {/* ── 対応希望内容 ── */}
-          <Field label="対応希望内容（最終的にどうなれば解決か）" required hint="データ修正の場合、どの項目をどう修正すればいいかなるべく詳細に" error={errors.resolution}>
+          <Field label="対応希望内容（最終的にどうなれば解決か）" required hint="データ修正の場合、どの項目をどう修正すればいいかなるべく詳細に" error={errors.resolution} id="field-resolution">
             <textarea name="resolution" value={form.resolution} onChange={handleChange} rows={6} placeholder="例：〇〇画面の△△項目を「×××」から「○○○」に修正していただきたい。" className={`${inputClass} resize-none`} />
           </Field>
 
@@ -291,11 +307,13 @@ type FieldProps = {
   required?: boolean;
   hint?: string; // 注釈テキスト（グレーの小さい文字）
   error?: string; // エラーメッセージ
+  id?: string; // フォーカス用ID
   children: React.ReactNode;
 };
-function Field({ label, required, hint, error, children }: FieldProps) {
+
+function Field({ label, required, hint, error, id, children }: FieldProps) {
   return (
-    <div>
+    <div id={id} tabIndex={-1} className="scroll-mt-6">
       <div className="flex items-baseline gap-2 mb-1.5">
         <label className="text-sm font-semibold text-slate-400 uppercase tracking-wide">
           {label} {required && <span className="text-rose-400">*</span>}
@@ -304,7 +322,7 @@ function Field({ label, required, hint, error, children }: FieldProps) {
         {hint && <span className="text-sm text-slate-300 truncate">{hint}</span>}
       </div>
       {children}
-      {error && <p className="text-rose-500 text-xs mt-1">{error}</p>}
+      {error && <p className="text-rose-500 text-sm mt-1">{error}</p>}
     </div>
   );
 }
