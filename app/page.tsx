@@ -1,10 +1,13 @@
 "use client";
 
-import { useState, useRef, DragEvent, ChangeEvent, FormEvent, ClipboardEvent } from "react";
+import { useState, DragEvent, ChangeEvent, FormEvent, ClipboardEvent } from "react";
 import { useRouter } from "next/navigation";
 import { InquiryFormData, InquiryFormErrors, ApiResponse, URGENCY_OPTIONS } from "@/types/inquiry";
 import { validateInquiryForm } from "@/lib/validate";
 import { error } from "console";
+import { Field } from "@/components/Field";
+import { ScreenshotInput } from "@/components/ScreenshotInput";
+import { FileUpload } from "@/components/FileUpload";
 
 type Status = "idle" | "loading";
 
@@ -32,7 +35,6 @@ export default function HomePage() {
   const [status, setStatus] = useState<Status>("idle");
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [errors, setErrors] = useState<InquiryFormErrors>({});
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
   // ── テキスト入力の変更 ────────────────────────────
@@ -210,75 +212,14 @@ export default function HomePage() {
             <textarea name="message" value={form.message} onChange={handleChange} rows={6} placeholder="例：○○の作業をしていたところ、○○の処理をしてうまくいかなかった。" className={`${inputClass} resize-none`} />
           </Field>
 
-          {/* ── スクリーンショット（Ctrl+V） ── */}
-          <Field label="スクリーンショット" required hint="Ctrl + V で貼り付け" error={errors.screenshot} id="field-screenshot">
-            <div
-              onPaste={handlePaste}
-              tabIndex={0} // tabIndex=0 でキーボードフォーカスを受け取れるようにする（Ctrl+Vに必要）
-              className="border-2 border-dashed border-slate-200 rounded-xl p-5 text-center
-                cursor-text focus:outline-none focus:border-indigo-300 focus:bg-indigo-50 transition-colors"
-            >
-              {screenshotUrl ? (
-                <div className="relative">
-                  {/* 貼り付けた画像のプレビュー */}
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={screenshotUrl} alt="スクリーンショット" className="max-h-48 mx-auto rounded-lg shadow-sm" />
-                  <button type="button" onClick={clearScreenshot} className="mt-3 text-xs text-rose-400 hover:text-rose-600 transition-colors">
-                    ✕ 削除する
-                  </button>
-                </div>
-              ) : (
-                <div>
-                  <p className="text-slate-400 text-sm">
-                    ここをクリックして <kbd className="bg-slate-100 px-1.5 py-0.5 rounded text-xs font-mono">Ctrl</kbd> + <kbd className="bg-slate-100 px-1.5 py-0.5 rounded text-xs font-mono">V</kbd> で貼り付け
-                  </p>
-                  <p className="text-slate-300 text-xs mt-1">PrintScreen や Snipping Tool でコピーした画像に対応</p>
-                </div>
-              )}
-            </div>
-          </Field>
+          <ScreenshotInput screenshotUrl={screenshotUrl} error={errors.screenshot} onPaste={handlePaste} onClear={clearScreenshot} />
 
           {/* ── 対応希望内容 ── */}
           <Field label="対応希望内容（最終的にどうなれば解決か）" required hint="データ修正の場合、どの項目をどう修正すればいいかなるべく詳細に" error={errors.resolution} id="field-resolution">
             <textarea name="resolution" value={form.resolution} onChange={handleChange} rows={6} placeholder="例：〇〇画面の△△項目を「×××」から「○○○」に修正していただきたい。" className={`${inputClass} resize-none`} />
           </Field>
 
-          {/* ── ファイル添付 ── */}
-          <Field label="ファイル添付">
-            <div
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-              onClick={() => fileInputRef.current?.click()}
-              className={`border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition-colors
-                ${isDragging ? "border-indigo-400 bg-indigo-50" : "border-slate-200 hover:border-indigo-300 hover:bg-indigo-50"}`}
-            >
-              {file ? (
-                <div className="flex items-center justify-between bg-indigo-50 rounded-lg px-4 py-2.5">
-                  <div className="text-left">
-                    <p className="text-indigo-700 text-sm font-medium truncate max-w-xs">📎 {file.name}</p>
-                    <p className="text-indigo-400 text-xs mt-0.5">{formatSize(file.size)}</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setFile(null);
-                    }}
-                    className="text-slate-400 hover:text-rose-500 transition-colors ml-3 text-lg leading-none"
-                  >
-                    ×
-                  </button>
-                </div>
-              ) : (
-                <div>
-                  <p className="text-slate-500 text-sm">クリックまたはドラッグ&ドロップ</p>
-                  <p className="text-slate-300 text-xs mt-1">PDF / Word / Excel / 画像（最大10MB）</p>
-                </div>
-              )}
-              <input ref={fileInputRef} type="file" style={{ display: "none" }} accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" onChange={handleFileChange} />
-            </div>
-          </Field>
+          <FileUpload file={file} isDragging={isDragging} onFileChange={handleFileChange} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop} onClear={() => setFile(null)} formatSize={formatSize} />
 
           {/* ── 送信ボタン ── */}
           <button
@@ -300,29 +241,3 @@ const inputClass = `
   w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-800 text-base bg-white
   focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-transparent transition
 `;
-
-// ── Fieldコンポーネント（ラベル + ヒント + 入力欄） ──
-type FieldProps = {
-  label: string;
-  required?: boolean;
-  hint?: string; // 注釈テキスト（グレーの小さい文字）
-  error?: string; // エラーメッセージ
-  id?: string; // フォーカス用ID
-  children: React.ReactNode;
-};
-
-function Field({ label, required, hint, error, id, children }: FieldProps) {
-  return (
-    <div id={id} tabIndex={-1} className="scroll-mt-6">
-      <div className="flex items-baseline gap-2 mb-1.5">
-        <label className="text-sm font-semibold text-slate-400 uppercase tracking-wide">
-          {label} {required && <span className="text-rose-400">*</span>}
-        </label>
-        {/* hint = 注釈（グレーの小さい文字で表示） */}
-        {hint && <span className="text-sm text-slate-300 truncate">{hint}</span>}
-      </div>
-      {children}
-      {error && <p className="text-rose-500 text-sm mt-1">{error}</p>}
-    </div>
-  );
-}
