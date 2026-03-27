@@ -1,243 +1,129 @@
-"use client";
+import Link from "next/link";
 
-import { useState, DragEvent, ChangeEvent, FormEvent, ClipboardEvent } from "react";
-import { useRouter } from "next/navigation";
-import { InquiryFormData, InquiryFormErrors, ApiResponse, URGENCY_OPTIONS } from "@/types/inquiry";
-import { validateInquiryForm } from "@/lib/validate";
-import { error } from "console";
-import { Field } from "@/components/Field";
-import { ScreenshotInput } from "@/components/ScreenshotInput";
-import { FileUpload } from "@/components/FileUpload";
+// ── メニュー項目の定義 ──────────────────────────────
+// 追加・変更がしやすいように配列で管理
+const MENU_ITEMS = [
+  {
+    href: "/inquiry",
+    label: "問い合わせフォーム",
+    description: "MCの修正依頼や質問はこちらから",
+    icon: "📩",
+    color: "from-indigo-500 to-indigo-600",
+    available: true,
+  },
+  {
+    href: "/account-unlock",
+    label: "アカウントロック解除",
+    description: "ログインできない場合の解除申請",
+    icon: "🔓",
+    color: "from-amber-500 to-amber-600",
+    available: false, // 未実装（グレーアウト表示）
+  },
+  {
+    href: "/storage-extension",
+    label: "保管期限延長",
+    description: "保管期限延長申請はこちらから",
+    icon: "📦",
+    color: "from-emerald-500 to-emerald-600",
+    available: false,
+  },
+  {
+    href: "/judgment-cancel",
+    label: "総合判定取消",
+    description: "総合判定の取消申請はこちらから",
+    icon: "↩️",
+    color: "from-rose-500 to-rose-600",
+    available: false,
+  },
+] as const;
 
-type Status = "idle" | "loading";
-
-// 緊急度ごとのバッジ色
-const URGENCY_COLOR: Record<string, string> = {
-  至急: "bg-red-100 text-red-700",
-  高: "bg-orange-100 text-orange-700",
-  中: "bg-yellow-100 text-yellow-700",
-  低: "bg-slate-100 text-slate-500",
-};
-
-export default function HomePage() {
-  const [form, setForm] = useState<InquiryFormData>({
-    name: "",
-    department: "",
-    title: "",
-    urgency: "",
-    screenPath: "",
-    message: "",
-    resolution: "",
-  });
-  const [file, setFile] = useState<File | null>(null);
-  const [screenshot, setScreenshot] = useState<File | null>(null); // Ctrl+V 貼り付け画像
-  const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null); // プレビュー用URL
-  const [status, setStatus] = useState<Status>("idle");
-  const [isDragging, setIsDragging] = useState<boolean>(false);
-  const [errors, setErrors] = useState<InquiryFormErrors>({});
-  const router = useRouter();
-
-  // ── テキスト入力の変更 ────────────────────────────
-  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
-  };
-
-  // ── ファイル選択 ──────────────────────────────────
-  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setFile(e.target.files?.[0] ?? null);
-  };
-
-  // ── ドラッグ&ドロップ ─────────────────────────────
-  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-  const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsDragging(false);
-  };
-  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsDragging(false);
-    const dropped = e.dataTransfer.files[0];
-    if (dropped) setFile(dropped);
-  };
-
-  // ── Ctrl+V でスクリーンショット貼り付け ─────────
-  // ClipboardEvent = クリップボード操作（コピー/貼り付け）のイベント型
-  const handlePaste = (e: ClipboardEvent<HTMLDivElement>) => {
-    const items = Array.from(e.clipboardData.items);
-    // クリップボードの中から画像だけを探す
-    const imageItem = items.find((item) => item.type.startsWith("image/"));
-    if (!imageItem) return;
-
-    const blob = imageItem.getAsFile(); // クリップボードの画像をFileオブジェクトに変換
-    if (!blob) return;
-
-    // 貼り付けた画像に timestamp でファイル名を付ける
-    const pastedFile = new File([blob], `screenshot_${Date.now()}.png`, { type: blob.type });
-    setScreenshot(pastedFile);
-
-    // プレビュー表示用のURL生成（ブラウザのメモリ上に一時的に作る）
-    // URL.createObjectURL = ファイルをブラウザ内だけで使えるURLに変換する
-    if (screenshotUrl) URL.revokeObjectURL(screenshotUrl); // 古いURLを解放してメモリ節約
-    setScreenshotUrl(URL.createObjectURL(pastedFile));
-  };
-
-  // ── スクリーンショットを削除 ──────────────────────
-  const clearScreenshot = () => {
-    if (screenshotUrl) URL.revokeObjectURL(screenshotUrl);
-    setScreenshot(null);
-    setScreenshotUrl(null);
-  };
-
-  // ── フォーム送信 ──────────────────────────────────
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-
-    // バリデーションを一括実行（スクリーンショットも含む）
-    const newErrors = validateInquiryForm(form, screenshot);
-    setErrors(newErrors);
-
-    // エラーがあれば止める
-    if (Object.keys(newErrors).length > 0) {
-      // エラーのキーの順番（画面の上から順に定義）
-      const fieldOrder: (keyof InquiryFormErrors)[] = ["name", "department", "title", "urgency", "message", "screenshot", "resolution"];
-
-      // 最初にエラーがある項目を探す
-      const firstErrorKey = fieldOrder.find((key) => newErrors[key]);
-
-      if (firstErrorKey) {
-        setTimeout(() => {
-          // id="field-xxx" の要素を探してスクロール＋フォーカス
-          const el = document.getElementById(`field-${firstErrorKey}`);
-          el?.scrollIntoView({ behavior: "smooth", block: "center" });
-          el?.focus();
-        }, 0);
-      }
-      return;
-    }
-
-    // ここまで来たら全項目OK → 送信開始
-    setStatus("loading");
-
-    const data = new FormData();
-    Object.entries(form).forEach(([key, val]) => data.append(key, val));
-    // Object.entries = オブジェクトを [key, value] のペア配列に変換してループ
-    if (file) data.append("file", file);
-    if (screenshot) data.append("screenshot", screenshot);
-
-    try {
-      const res = await fetch("/api/submit", { method: "POST", body: data });
-      const json: ApiResponse = await res.json();
-      if (json.status === "ok") {
-        router.push("/done");
-      } else {
-        setErrors({ resolution: json.message });
-        setStatus("idle");
-      }
-    } catch {
-      setErrors({ resolution: "通信エラーが発生しました" });
-      setStatus("idle");
-    }
-  };
-
-  const formatSize = (bytes: number) => (bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / (1024 * 1024)).toFixed(1)} MB`);
-
+export default function TopPage() {
   return (
-    <main className="min-h-screen bg-slate-50 flex items-center justify-center p-3 sm:p-6">
-      <div className="w-full max-w-5xl">
-        {/* ヘッダー */}
-        <div className="mb-8">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
-            <span className="text-xs font-bold tracking-widest text-indigo-500 uppercase">Internal Portal</span>
-          </div>
-          <h1 className="text-3xl font-bold text-slate-800 tracking-tight">お問い合わせ</h1>
-          <p className="text-slate-400 text-sm mt-1">MCの問い合わせはこちら</p>
+    <main className="min-h-screen bg-slate-900 flex flex-col item-center justify-center p-6">
+      {/* ── ヘッダー ── */}
+      <div className="text-center mb-16">
+        {/*バッジ*/}
+        <div className="inline-flex items-center gap-2      bg-slat-800 border border-slate-700 rounded-full px-4 py-1.5 mb-6">
+          <span className="w-1.5 h1.5 rounded-full bg-indigo-400 animate-pulse" />
+          <span className="text-xs font-semibold tracking-widest text-slate-400 uppercase">Internal System</span>
         </div>
 
-        <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 sm:p-8 space-y-8">
-          {/* ── 名前・部署 ── */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="お名前" required error={errors.name} id="field-name">
-              <input type="text" name="name" value={form.name} onChange={handleChange} placeholder="山田 太郎" className={inputClass} />
-            </Field>
-            <Field label="部署" required error={errors.department} id="field-department">
-              <input type="text" name="department" value={form.department} onChange={handleChange} placeholder="例：包装課" className={inputClass} />
-            </Field>
-          </div>
-
-          {/* ── 区切り線 ── */}
-          <hr className="border-slate-100" />
-
-          {/* ── 表題 ── */}
-          <Field label="表題" required error={errors.title} id="field-title">
-            <input type="text" name="title" value={form.title} onChange={handleChange} placeholder="〇〇の依頼" className={inputClass} />
-          </Field>
-
-          {/* ── 緊急度 ── */}
-          <Field label="緊急度" required error={errors.urgency} id="field-urgency">
-            {/* セレクトボックス（プルダウン） */}
-            <div className="relative">
-              <select name="urgency" value={form.urgency} onChange={handleChange} className={`${inputClass} appearance-none pr-10 cursor-pointer`}>
-                <option value="" disabled>
-                  選択してください
-                </option>
-                {/* URGENCY_OPTIONS をループして option タグを生成 */}
-                {URGENCY_OPTIONS.map((opt) => (
-                  <option key={opt} value={opt}>
-                    {opt}
-                  </option>
-                ))}
-              </select>
-              {/* カスタム矢印アイコン */}
-              <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
-                <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </div>
-            </div>
-            {/* 選択中の緊急度をバッジで表示 */}
-            {form.urgency && <span className={`inline-block mt-2 text-xs font-semibold px-2.5 py-1 rounded-full ${URGENCY_COLOR[form.urgency]}`}>{form.urgency}</span>}
-          </Field>
-
-          {/* ── 画面の開き方 ── */}
-          <Field label="画面の開き方（経路）">
-            <textarea name="screenPath" value={form.screenPath} onChange={handleChange} rows={5} placeholder="例：MCFRAME実運用⇒４製造管理⇒製造計画⇒指図済/着手中にチェック⇒検索(F1)" className={`${inputClass} resize-none`} />
-          </Field>
-
-          {/* ── 問い合わせ経緯 ── */}
-          <Field label="問い合わせ経緯" required error={errors.message} id="field-message">
-            <textarea name="message" value={form.message} onChange={handleChange} rows={6} placeholder="例：○○の作業をしていたところ、○○の処理をしてうまくいかなかった。" className={`${inputClass} resize-none`} />
-          </Field>
-
-          <ScreenshotInput screenshotUrl={screenshotUrl} error={errors.screenshot} onPaste={handlePaste} onClear={clearScreenshot} />
-
-          {/* ── 対応希望内容 ── */}
-          <Field label="対応希望内容（最終的にどうなれば解決か）" required hint="データ修正の場合、どの項目をどう修正すればいいかなるべく詳細に" error={errors.resolution} id="field-resolution">
-            <textarea name="resolution" value={form.resolution} onChange={handleChange} rows={6} placeholder="例：〇〇画面の△△項目を「×××」から「○○○」に修正していただきたい。" className={`${inputClass} resize-none`} />
-          </Field>
-
-          <FileUpload file={file} isDragging={isDragging} onFileChange={handleFileChange} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop} onClear={() => setFile(null)} formatSize={formatSize} />
-
-          {/* ── 送信ボタン ── */}
-          <button
-            type="submit"
-            disabled={status === "loading"}
-            className="w-full py-3 rounded-xl bg-indigo-600 text-white font-semibold text-sm
-              hover:bg-indigo-700 active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            {status === "loading" ? "送信中..." : "送信する →"}
-          </button>
-        </form>
+        {/* タイトル */}
+        <h1 className="text-5x1 sm:text-6x1 font-black text-white tracking-tight leading-none mb-3">
+          MC <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400">Systems</span> Desk
+        </h1>
+        <p className="text-slate-400 text-base mt-4">情報システム部 瀬戸MC担当窓口</p>
       </div>
+
+      {/* ── メニューカード ── */}
+      <div className="grid grid-cols-1 gap-4 w-full max-w-2x1">
+        {MENU_ITEMS.map((item) =>
+          item.available ? (
+            // 実装済み → リンクとして動作
+            <Link
+              key={item.href}
+              href={item.href}
+              className="group relative bg-slate-800 border border-slate-700 rounded-2x1 p-6
+                hover:border-indigo-500 hover:bg-slate-750 transition-all duration-200
+                hover:shadow-lg hover:shadow-indigo-500/10 hover:-translate-y-0.5"
+            >
+              <CardContent item={item} />
+            </Link>
+          ) : (
+            // 未実装 → クリック不可のグレーアウト
+            <div
+              key={item.href}
+              className="relative bg-slate-800/50 border border-slate-800 rounded-2x1 p-6
+                opacity-50 cursor-not-allowed"
+            >
+              <CardContent item={item} />
+              {/* 準備中バッジ */}
+              <span
+                className="absolute top-4 right-4 text-xs bg-slate-700 text-slate-400
+                px-2 py-0.5 rounded-full"
+              >
+                準備中
+              </span>
+            </div>
+          ),
+        )}
+      </div>
+
+      {/* ── フッター ── */}
+      <p className="text-slate-600 text-xs mt-16">© MC 情報システム部</p>
     </main>
   );
 }
 
-// ── 共通スタイル ──────────────────────────────────
-const inputClass = `
-  w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-800 text-base bg-white
-  focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-transparent transition
-`;
+// ── カードの中身（共通部品） ──────────────────────
+// Link版とdiv版で同じ中身を使い回すためコンポーネントに切り出す
+type MenuItem = (typeof MENU_ITEMS)[number];
+
+function CardContent({ item }: { item: MenuItem }) {
+  return (
+    <>
+      {/* アイコン */}
+      <div
+        className={`w-12 h-12 rounded-xl bg-gradient-to-br ${item.color}
+        flex-item-center justify-center text2x1 mb-4 shadow-lg`}
+      >
+        {item.icon}
+      </div>
+
+      {/* テキスト */}
+      <h2 className="text-white font-bold text-lg mb-1 group-hover:text-indigo-300 transition-colors">{item.label}</h2>
+      <p className="text-slate-400 text-sm leading-relaxed">{item.description}</p>
+
+      {/* 矢印アイコン（リンク版のみ） */}
+      {"available" in item && item.available && (
+        <div
+          className="mt-4 flex items-center gap-1 text-indigo-400 text-xs font-semibold
+          group-hover:gap-2 transition-all"
+        >
+          開く
+          <span>→</span>
+        </div>
+      )}
+    </>
+  );
+}
