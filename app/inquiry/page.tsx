@@ -28,6 +28,8 @@ export default function HomePage() {
     screenPath: "",
     message: "",
     resolution: "",
+    reason: "",
+    approver: "",
   });
   const [file, setFile] = useState<File | null>(null);
   const [screenshot, setScreenshot] = useState<File | null>(null); // Ctrl+V 貼り付け画像
@@ -102,7 +104,7 @@ export default function HomePage() {
     // エラーがあれば止める
     if (Object.keys(newErrors).length > 0) {
       // エラーのキーの順番（画面の上から順に定義）
-      const fieldOrder: (keyof InquiryFormErrors)[] = ["name", "department", "title", "urgency", "message", "screenshot", "resolution"];
+      const fieldOrder: (keyof InquiryFormErrors)[] = ["name", "department", "title", "urgency", "reason", "approver", "message", "screenshot", "resolution"];
 
       // 最初にエラーがある項目を探す
       const firstErrorKey = fieldOrder.find((key) => newErrors[key]);
@@ -211,6 +213,22 @@ export default function HomePage() {
             {/* 選択中の緊急度をバッジで表示 */}
             {form.urgency && <span className={`inline-block mt-2 text-xs font-semibold px-2.5 py-1 rounded-full ${URGENCY_COLOR[form.urgency]}`}>{form.urgency}</span>}
           </Field>
+
+          {/* ── 至急のときだけ表示 ── */}
+          {/* form.urgency === '至急' のときだけこのブロックが描画される */}
+          {form.urgency === "至急" && (
+            <div className="border border-red-200 bg-red-50 rounded-xl p-4 space-y-4">
+              <p className="text-red-600 text-xs font-semibold">至急の対応が必要な場合は、以下の内容もご記入ください。</p>
+
+              <Field label="理由" required error={errors.reason} id="field-reason">
+                <textarea name="urgencyReason" value={form.reason} onChange={handleChange} rows={3} required className={`${inputClass} resize-none`} />
+              </Field>
+
+              <Field label="承認者" required error={errors.approver} id="field-approver">
+                <input type="text" name="approver" value={form.approver} onChange={handleChange} className={inputClass} />
+              </Field>
+            </div>
+          )}
 
           {/* ── 画面の開き方 ── */}
           <Field label="画面の開き方（経路）">

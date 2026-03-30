@@ -24,6 +24,16 @@ export function validateInquiryForm(form: InquiryFormData, screenshot: File | nu
     errors.urgency = "緊急度を選択してください";
   }
 
+  // 至急のときだけ追加チェック
+  if (form.urgency === "至急") {
+    if (!form.reason.trim()) {
+      errors.reason = "緊急の理由を入力してください";
+    }
+    if (!form.approver.trim()) {
+      errors.approver = "承認者を入力してください";
+    }
+  }
+
   if (!form.message.trim()) {
     errors.message = "問い合わせ経緯を入力してください";
   } else if (form.message.length > 1000) {

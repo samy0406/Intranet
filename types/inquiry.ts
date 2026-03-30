@@ -17,6 +17,8 @@ export type InquiryFormData = {
   screenPath: string; // 画面の開き方
   message: string; // 問い合わせ経緯
   resolution: string; // 対応希望内容
+  reason: string; // 緊急の理由
+  approver: string; // 承認者
 };
 
 //･エラーの型
@@ -29,6 +31,8 @@ export type InquiryFormErrors = {
   message?: string;
   screenshot?: string;
   resolution?: string;
+  reason?: string;
+  approver?: string;
 };
 
 // DBに保存されている問い合わせデータの型
