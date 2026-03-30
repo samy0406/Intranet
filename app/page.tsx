@@ -17,7 +17,7 @@ const MENU_ITEMS = [
     description: "ログインできない場合の解除申請",
     icon: "🔓",
     color: "from-amber-500 to-amber-600",
-    available: false, // 未実装（グレーアウト表示）
+    available: true, // 未実装（グレーアウト表示）
   },
   {
     href: "/storage-extension",
@@ -25,7 +25,7 @@ const MENU_ITEMS = [
     description: "保管期限延長申請はこちらから",
     icon: "📦",
     color: "from-emerald-500 to-emerald-600",
-    available: false,
+    available: true,
   },
   {
     href: "/judgment-cancel",
@@ -33,7 +33,7 @@ const MENU_ITEMS = [
     description: "総合判定の取消申請はこちらから",
     icon: "↩️",
     color: "from-rose-500 to-rose-600",
-    available: false,
+    available: true,
   },
 ] as const;
 
@@ -52,7 +52,7 @@ export default function TopPage() {
         <h1 className="text-5x1 sm:text-6x1 font-black text-white tracking-tight leading-none mb-3">
           MC <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400">Systems</span> Desk
         </h1>
-        <p className="text-slate-400 text-base mt-4">情報システム部 瀬戸MC担当窓口</p>
+        <p className="text-slate-400 text-base mt-4">瀬戸情報システム部 MC担当窓口</p>
       </div>
 
       {/* ── メニューカード ── */}

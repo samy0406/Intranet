@@ -7,6 +7,7 @@ import { validateInquiryForm } from "@/lib/validate";
 import { Field } from "@/components/Field";
 import { ScreenshotInput } from "@/components/ScreenshotInput";
 import { FileUpload } from "@/components/FileUpload";
+import { BackToHomeButton } from "@/components/BackToHomeButton";
 
 type Status = "idle" | "loading";
 
@@ -146,6 +147,16 @@ export default function HomePage() {
   return (
     <main className="min-h-screen bg-slate-50 flex items-center justify-center p-3 sm:p-6">
       <div className="w-full max-w-5xl">
+        {/* ホームに戻るボタン */}
+        <div className="mb-4">
+          <BackToHomeButton
+            hasInput={
+              // いずれかの項目に入力があれば true
+              Object.values(form).some((v) => v !== "") || screenshot !== null || file !== null
+            }
+          />
+        </div>
+
         {/* ヘッダー */}
         <div className="mb-8">
           <div className="flex items-center gap-2 mb-2">
