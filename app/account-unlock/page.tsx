@@ -7,6 +7,7 @@ import { BackToHomeButton } from "@/components/BackToHomeButton";
 type FormData = {
   department: string;
   name: string;
+  mail: string;
   accountCode: string;
 };
 
@@ -15,6 +16,7 @@ type Status = "idle" | "loading" | "done";
 type Errors = {
   department?: string;
   name?: string;
+  mail?: string;
   accountCode?: string;
 };
 
@@ -22,12 +24,13 @@ function validate(form: FormData): Errors {
   const errors: Errors = {};
   if (!form.department.trim()) errors.department = "部署を入力してください";
   if (!form.name.trim()) errors.name = "名前を入力してください";
+  if (!form.mail.trim()) errors.mail = "メールアドレスを入力してください";
   if (!form.accountCode.trim()) errors.accountCode = "アカウントコードを入力してください";
   return errors;
 }
 
 export default function AccountUnlockPage() {
-  const [form, setForm] = useState<FormData>({ department: "", name: "", accountCode: "" });
+  const [form, setForm] = useState<FormData>({ department: "", name: "", mail: "", accountCode: "" });
   const [errors, setErrors] = useState<Errors>({});
   const [status, setStatus] = useState<Status>("idle");
   const router = useRouter();
@@ -43,7 +46,7 @@ export default function AccountUnlockPage() {
     const newErrors = validate(form);
     setErrors(newErrors);
     if (Object.keys(newErrors).length > 0) {
-      const fieldOrder = ["department", "name", "accountCode"] as const;
+      const fieldOrder = ["department", "name", "mail", "accountCode"] as const;
       const first = fieldOrder.find((k) => newErrors[k]);
       if (first) {
         setTimeout(() => {
@@ -133,6 +136,15 @@ export default function AccountUnlockPage() {
               </label>
               <input type="text" name="name" value={form.name} onChange={handleChange} placeholder="山田 太郎" className={inputClass} />
               {errors.name && <p className="text-rose-400 text-xs mt-1">⚠ {errors.name}</p>}
+            </div>
+
+            {/* メールアドレス */}
+            <div id="field-mail" tabIndex={-1} className="scroll-mt-6">
+              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5">
+                メールアドレス <span className="text-rose-400">*</span>
+              </label>
+              <input type="text" name="mail" value={form.mail} onChange={handleChange} placeholder="hoyuメールアドレス" className={inputClass} />
+              {errors.mail && <p className="text-rose-400 text-xs mt-1">⚠ {errors.mail}</p>}
             </div>
 
             {/* アカウントコード */}

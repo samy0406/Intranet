@@ -5,6 +5,7 @@ import Link from "next/link";
 const MENU_ITEMS = [
   {
     href: "/inquiry",
+    statusHref: "/inquiry/status",
     label: "問い合わせフォーム",
     description: "MCの修正依頼や質問はこちらから",
     icon: "📩",
@@ -13,6 +14,7 @@ const MENU_ITEMS = [
   },
   {
     href: "/account-unlock",
+    statusHref: "/account-unlock/status",
     label: "アカウントロック解除",
     description: "ログインできない場合の解除申請",
     icon: "🔓",
@@ -21,6 +23,7 @@ const MENU_ITEMS = [
   },
   {
     href: "/storage-extension",
+    statusHref: "/storage-extension/status",
     label: "保管期限延長",
     description: "保管期限延長申請はこちらから",
     icon: "📦",
@@ -29,6 +32,7 @@ const MENU_ITEMS = [
   },
   {
     href: "/judgment-cancel",
+    statusHref: "/judgment-cancel/status",
     label: "総合判定取消",
     description: "総合判定の取消申請はこちらから",
     icon: "↩️",
@@ -39,7 +43,7 @@ const MENU_ITEMS = [
 
 export default function TopPage() {
   return (
-    <main className="min-h-screen bg-slate-900 flex flex-col item-center justify-center p-6">
+    <main className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-6">
       {/* ── ヘッダー ── */}
       <div className="text-center mb-16">
         {/*バッジ*/}
@@ -56,74 +60,62 @@ export default function TopPage() {
       </div>
 
       {/* ── メニューカード ── */}
-      <div className="grid grid-cols-1 gap-4 w-full max-w-2x1">
-        {MENU_ITEMS.map((item) =>
-          item.available ? (
-            // 実装済み → リンクとして動作
-            <Link
-              key={item.href}
-              href={item.href}
-              className="group relative bg-slate-800 border border-slate-700 rounded-2x1 p-6
-                hover:border-indigo-500 hover:bg-slate-750 transition-all duration-200
-                hover:shadow-lg hover:shadow-indigo-500/10 hover:-translate-y-0.5"
-            >
-              <CardContent item={item} />
-            </Link>
-          ) : (
-            // 未実装 → クリック不可のグレーアウト
-            <div
-              key={item.href}
-              className="relative bg-slate-800/50 border border-slate-800 rounded-2x1 p-6
-                opacity-50 cursor-not-allowed"
-            >
-              <CardContent item={item} />
-              {/* 準備中バッジ */}
-              <span
-                className="absolute top-4 right-4 text-xs bg-slate-700 text-slate-400
-                px-2 py-0.5 rounded-full"
+      <div className="flex flex-col gap-4 w-full max-w-3xl">
+        {MENU_ITEMS.map((item) => (
+          <div
+            key={item.href}
+            className="bg-slate-800 border border-slate-700 rounded-2xl overflow-hidden
+              hover:border-slate-600 transition-all duration-200"
+          >
+            <div className="flex flex-col sm:flex-row">
+              <Link
+                href={item.available ? item.href : "#"}
+                className={`flex-1 flex items-center gap-4 p-6 group transition-all duration-200
+                  ${item.available ? "hover:bg-slate-700/50" : "opacity-40 cursor-not-allowed pointer-events-none"}`}
               >
-                準備中
-              </span>
+                <div
+                  className={`w-12 h-12 rounded-xl bg-gradient-to-br ${item.color}
+                  flex items-center justify-center text-2xl shrink-0 shadow-lg`}
+                >
+                  {item.icon}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-white font-bold text-base group-hover:text-indigo-300 transition-colors truncate">{item.label}</h2>
+                  <p className="text-slate-400 text-sm mt-0.5">{item.description}</p>
+                  <p className="text-indigo-400 text-xs font-semibold mt-2">申請する →</p>
+                </div>
+              </Link>
+
+              {/* 区切り線（PC：縦、スマホ：横） */}
+              <div className="hidden sm:block w-px bg-slate-700 my-4" />
+              <div className="sm:hidden h-px bg-slate-700 mx-6" />
+
+              {/* 右側：処理状況を確認 */}
+              <Link
+                href={item.available ? item.statusHref : "#"}
+                className={`sm:w-52 flex items-center gap-3 p-6 group transition-all duration-200
+                  ${item.available ? "hover:bg-slate-700/50" : "opacity-40 cursor-not-allowed pointer-events-none"}`}
+              >
+                <div
+                  className="w-10 h-10 rounded-xl bg-slate-700 group-hover:bg-slate-600
+                  flex items-center justify-center shrink-0 transition-colors"
+                >
+                  <svg className="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-slate-300 font-semibold text-sm group-hover:text-white transition-colors">処理状況を確認</p>
+                  <p className="text-slate-500 text-xs mt-0.5">申請の進捗を見る</p>
+                </div>
+              </Link>
             </div>
-          ),
-        )}
+          </div>
+        ))}
       </div>
 
       {/* ── フッター ── */}
       <p className="text-slate-600 text-xs mt-16">© MC 情報システム部</p>
     </main>
-  );
-}
-
-// ── カードの中身（共通部品） ──────────────────────
-// Link版とdiv版で同じ中身を使い回すためコンポーネントに切り出す
-type MenuItem = (typeof MENU_ITEMS)[number];
-
-function CardContent({ item }: { item: MenuItem }) {
-  return (
-    <>
-      {/* アイコン */}
-      <div
-        className={`w-12 h-12 rounded-xl bg-gradient-to-br ${item.color}
-        flex-item-center justify-center text2x1 mb-4 shadow-lg`}
-      >
-        {item.icon}
-      </div>
-
-      {/* テキスト */}
-      <h2 className="text-white font-bold text-lg mb-1 group-hover:text-indigo-300 transition-colors">{item.label}</h2>
-      <p className="text-slate-400 text-sm leading-relaxed">{item.description}</p>
-
-      {/* 矢印アイコン（リンク版のみ） */}
-      {"available" in item && item.available && (
-        <div
-          className="mt-4 flex items-center gap-1 text-indigo-400 text-xs font-semibold
-          group-hover:gap-2 transition-all"
-        >
-          開く
-          <span>→</span>
-        </div>
-      )}
-    </>
   );
 }
