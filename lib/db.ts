@@ -1,93 +1,263 @@
 // ================================================
 // データベース操作ユーティリティ（Oracle版）
-// oracledb = Node.js公式 Oracle ドライバー
+// ※ TODO コメントの箇所を実際のテーブル名・カラム名に変更してください
 // ================================================
-import oracledb from 'oracledb'
-import { Inquiry } from '@/types/inquiry'
+import oracledb from "oracledb";
 
-// ── 接続設定（.env.local から読み込む） ──────────────
-// process.env.XXX = 環境変数（パスワードをコードに直書きしないための仕組み）
+// ── Thick モード（Oracle Instant Client）の初期化 ──
+oracledb.initOracleClient({
+  libDir: process.env.ORACLE_CLIENT_PATH,
+});
+
+// ── 接続設定 ──────────────────────────────────────
 const DB_CONFIG: oracledb.ConnectionAttributes = {
-  user:             process.env.ORACLE_USER,       // Oracleのユーザー名
-  password:         process.env.ORACLE_PASSWORD,   // パスワード
-  connectString:    process.env.ORACLE_CONN_STRING, // 例: "192.168.1.1:1521/ORCL"
-}
+  user:          process.env.ORACLE_USER,
+  password:      process.env.ORACLE_PASSWORD,
+  connectString: process.env.ORACLE_CONN_STRING,
+};
 
-// ── 接続を取得するヘルパー関数 ──────────────────────
-// 毎回 getConnection → 処理 → connection.close() のパターンを使う
 async function getConnection(): Promise<oracledb.Connection> {
-  return await oracledb.getConnection(DB_CONFIG)
+  return await oracledb.getConnection(DB_CONFIG);
 }
 
-// ── テーブルが無ければ作成する（初回のみ実行） ──────
-export async function initDb(): Promise<void> {
-  const conn = await getConnection()
-  try {
-    // Oracle の自動採番: GENERATED ALWAYS AS IDENTITY（SQLiteの AUTOINCREMENT に相当）
-    // VARCHAR2(n): Oracleの文字列型（nはバイト数上限）
-    // TIMESTAMP: OracleのDateTime型
-    await conn.execute(`
-      CREATE TABLE inquiries (
-        id          NUMBER         GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-        name        VARCHAR2(100)  NOT NULL,
-        department  VARCHAR2(100),
-        message     CLOB           NOT NULL,
-        filename    VARCHAR2(255),
-        created_at  TIMESTAMP      DEFAULT CURRENT_TIMESTAMP
-      )
-    `)
-    await conn.commit()
-  } catch (err: unknown) {
-    // ORA-00955 = テーブルがすでに存在する → 正常なのでスキップ
-    if ((err as { errorNum?: number }).errorNum !== 955) {
-      throw err // それ以外のエラーは再スロー
-    }
-  } finally {
-    // finally = 成功・失敗どちらでも必ず実行（接続を閉じ忘れ防止）
-    await conn.close()
-  }
-}
+// ================================================
+// 問い合わせ
+// ================================================
 
-// ── 問い合わせを1件保存する ────────────────────────────
-export async function saveInquiry(
-  data: Omit<Inquiry, 'id' | 'createdAt'>
-): Promise<void> {
-  const conn = await getConnection()
+const TABLE_INQUIRY = "INQUIRIES"; // TODO: テーブル名を変更
+
+export type InquiryRecord = {
+  name:          string;
+  department:    string;
+  mail:          string;
+  title:         string;
+  urgency:       string;
+  urgencyReason: string;
+  approver:      string;
+  screenPath:    string;
+  message:       string;
+  resolution:    string;
+  filename:      string | null;
+  screenshot:    string | null;
+};
+
+export async function saveInquiry(data: InquiryRecord): Promise<void> {
+  const conn = await getConnection();
   try {
-    // Oracle のプレースホルダーは :変数名 形式（SQLiteの ? とは違う）
     await conn.execute(
-      `INSERT INTO inquiries (name, department, message, filename)
-       VALUES (:name, :department, :message, :filename)`,
+      // TODO: カラム名を変更
+      `INSERT INTO ${TABLE_INQUIRY} (
+        NAME, DEPARTMENT, MAIL, TITLE, URGENCY,
+        URGENCY_REASON, APPROVER, SCREEN_PATH,
+        MESSAGE, RESOLUTION, FILENAME, SCREENSHOT
+      ) VALUES (
+        :name, :department, :mail, :title, :urgency,
+        :urgencyReason, :approver, :screenPath,
+        :message, :resolution, :filename, :screenshot
+      )`,
       {
-        name:       data.name,
-        department: data.department,
-        message:    data.message,
-        filename:   data.filename,  // null でも渡せる
+        name:          data.name,
+        department:    data.department,
+        mail:          data.mail,
+        title:         data.title,
+        urgency:       data.urgency,
+        urgencyReason: data.urgencyReason,
+        approver:      data.approver,
+        screenPath:    data.screenPath,
+        message:       data.message,
+        resolution:    data.resolution,
+        filename:      data.filename,
+        screenshot:    data.screenshot,
       }
-    )
-    await conn.commit() // Oracleは明示的にcommitが必要
+    );
+    await conn.commit();
   } finally {
-    await conn.close()
+    await conn.close();
   }
 }
 
-// ── 問い合わせを全件取得する ───────────────────────────
-export async function getAllInquiries(): Promise<Inquiry[]> {
-  const conn = await getConnection()
+// ================================================
+// アカウントロック解除
+// ================================================
+
+const TABLE_ACCOUNT_UNLOCK = "ACCOUNT_UNLOCK"; // TODO: テーブル名を変更
+
+export type AccountUnlockRecord = {
+  department:  string;
+  name:        string;
+  mail:        string;
+  accountCode: string;
+};
+
+export async function saveAccountUnlock(data: AccountUnlockRecord): Promise<void> {
+  const conn = await getConnection();
   try {
-    // outFormat: OBJECT = 結果を { カラム名: 値 } のオブジェクト形式で返す
-    // （デフォルトは配列形式なので指定が必要）
-    const result = await conn.execute<Inquiry>(
-      `SELECT id, name, department, message, filename,
-              TO_CHAR(created_at, 'YYYY-MM-DD HH24:MI:SS') AS "createdAt"
-       FROM inquiries
-       ORDER BY created_at DESC`,
-      {},
-      { outFormat: oracledb.OUT_FORMAT_OBJECT }
-    )
-    // rows が undefined のときは空配列を返す
-    return (result.rows ?? []) as Inquiry[]
+    await conn.execute(
+      // TODO: カラム名を変更
+      `INSERT INTO ${TABLE_ACCOUNT_UNLOCK} (
+        DEPARTMENT, NAME, MAIL, ACCOUNT_CODE
+      ) VALUES (
+        :department, :name, :mail, :accountCode
+      )`,
+      {
+        department:  data.department,
+        name:        data.name,
+        mail:        data.mail,
+        accountCode: data.accountCode,
+      }
+    );
+    await conn.commit();
   } finally {
-    await conn.close()
+    await conn.close();
+  }
+}
+
+// アカウントコードで検索（処理状況確認用）
+// true = 申請レコードあり（処理中）、false = なし（ログイン可能）
+export async function findAccountUnlock(accountCode: string): Promise<boolean> {
+  const conn = await getConnection();
+  try {
+    const result = await conn.execute(
+      // TODO: カラム名を変更
+      `SELECT COUNT(*) AS CNT
+       FROM ${TABLE_ACCOUNT_UNLOCK}
+       WHERE ACCOUNT_CODE = :accountCode`,
+      { accountCode },
+      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+    );
+    const rows = result.rows as { CNT: number }[];
+    return rows[0].CNT > 0;
+  } finally {
+    await conn.close();
+  }
+}
+
+// ================================================
+// 保管期限延長
+// ================================================
+
+const TABLE_STORAGE_HEADER = "STORAGE_EXTENSION";       // TODO: テーブル名を変更
+const TABLE_STORAGE_ITEMS  = "STORAGE_EXTENSION_ITEMS"; // TODO: テーブル名を変更
+
+export type StorageExtensionRecord = {
+  department: string;
+  name:       string;
+  items: {
+    itemCode:   string;
+    lotNo:      string;
+    expiryDate: string;
+  }[];
+};
+
+export async function saveStorageExtension(data: StorageExtensionRecord): Promise<void> {
+  const conn = await getConnection();
+  try {
+    // ── 親レコード（ヘッダー）を保存してIDを取得 ──
+    // TODO: カラム名を変更
+    const headerResult = await conn.execute(
+      `INSERT INTO ${TABLE_STORAGE_HEADER} (DEPARTMENT, NAME)
+       VALUES (:department, :name)
+       RETURNING ID INTO :id`,
+      {
+        department: data.department,
+        name:       data.name,
+        id:         { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
+      }
+    );
+    const headerId = (headerResult.outBinds as { id: number[] }).id[0];
+
+    // ── 品目を1行ずつ保存 ──────────────────────────
+    for (const item of data.items) {
+      // TODO: カラム名を変更
+      await conn.execute(
+        `INSERT INTO ${TABLE_STORAGE_ITEMS} (
+          HEADER_ID, ITEM_CODE, LOT_NO, EXPIRY_DATE
+        ) VALUES (
+          :headerId, :itemCode, :lotNo, :expiryDate
+        )`,
+        {
+          headerId:   headerId,
+          itemCode:   item.itemCode,
+          lotNo:      item.lotNo,
+          expiryDate: item.expiryDate,
+        }
+      );
+    }
+    await conn.commit();
+  } finally {
+    await conn.close();
+  }
+}
+
+// 品目コード・ロットNOで検索（処理状況確認用）
+export type StorageItemResult = {
+  itemCode:   string;
+  lotNo:      string;
+  expiryDate: string;
+};
+
+export async function findStorageItems(
+  itemCode: string,
+  lotNo:    string
+): Promise<StorageItemResult[]> {
+  const conn = await getConnection();
+  try {
+    // TODO: カラム名・テーブル名を変更
+    const result = await conn.execute(
+      `SELECT ITEM_CODE, LOT_NO, EXPIRY_DATE
+       FROM ${TABLE_STORAGE_ITEMS}
+       WHERE ITEM_CODE = :itemCode
+         AND LOT_NO    = :lotNo`,
+      { itemCode, lotNo },
+      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+    );
+    const rows = result.rows as { ITEM_CODE: string; LOT_NO: string; EXPIRY_DATE: string }[];
+    return rows.map((row) => ({
+      itemCode:   row.ITEM_CODE,
+      lotNo:      row.LOT_NO,
+      expiryDate: row.EXPIRY_DATE,
+    }));
+  } finally {
+    await conn.close();
+  }
+}
+
+// ================================================
+// 総合判定取消
+// ================================================
+
+const TABLE_JUDGMENT_CANCEL = "JUDGMENT_CANCEL"; // TODO: テーブル名を変更
+
+export type JudgmentCancelRecord = {
+  department: string;
+  name:       string;
+  mail:       string;
+  itemCode:   string;
+  lotNo:      string;
+  screenshot: string | null;
+};
+
+export async function saveJudgmentCancel(data: JudgmentCancelRecord): Promise<void> {
+  const conn = await getConnection();
+  try {
+    // TODO: カラム名を変更
+    await conn.execute(
+      `INSERT INTO ${TABLE_JUDGMENT_CANCEL} (
+        DEPARTMENT, NAME, MAIL, ITEM_CODE, LOT_NO, SCREENSHOT
+      ) VALUES (
+        :department, :name, :mail, :itemCode, :lotNo, :screenshot
+      )`,
+      {
+        department: data.department,
+        name:       data.name,
+        mail:       data.mail,
+        itemCode:   data.itemCode,
+        lotNo:      data.lotNo,
+        screenshot: data.screenshot,
+      }
+    );
+    await conn.commit();
+  } finally {
+    await conn.close();
   }
 }

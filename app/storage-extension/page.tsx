@@ -8,6 +8,7 @@ import { BackToHomeButton } from "@/components/BackToHomeButton";
 type BaseFormData = {
   department: string;
   name: string;
+  mail: string;
 };
 
 // 品目1セットの型
@@ -21,6 +22,7 @@ type ItemRow = {
 type BaseErrors = {
   department?: string;
   name?: string;
+  mail?: string;
 };
 
 // 品目行のエラー型（行番号をキーにしたオブジェクト）
@@ -44,7 +46,11 @@ function validate(base: BaseFormData, items: ItemRow[]): { baseErrors: BaseError
 
   if (!base.department.trim()) baseErrors.department = "部署を入力してください";
   if (!base.name.trim()) baseErrors.name = "名前を入力してください";
-
+  if (!base.mail.trim()) {
+    baseErrors.mail = "メールアドレスを入力してください";
+  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(base.mail)) {
+    baseErrors.mail = "正しい形式で入力してください";
+  }
   items.forEach((item, index) => {
     const rowErrors: ItemErrors[number] = {};
     if (!item.itemCode.trim()) rowErrors.itemCode = "品目コードを入力してください";
@@ -58,7 +64,7 @@ function validate(base: BaseFormData, items: ItemRow[]): { baseErrors: BaseError
 }
 
 export default function StorageExtensionPage() {
-  const [base, setBase] = useState<BaseFormData>({ department: "", name: "" });
+  const [base, setBase] = useState<BaseFormData>({ department: "", name: "", mail: "" });
   const [items, setItems] = useState<ItemRow[]>([createEmptyRow()]);
   const [baseErrors, setBaseErrors] = useState<BaseErrors>({});
   const [itemErrors, setItemErrors] = useState<ItemErrors>({});
@@ -185,9 +191,17 @@ export default function StorageExtensionPage() {
                 <label className={labelClass}>
                   名前 <span className="text-rose-400">*</span>
                 </label>
-                <input type="text" name="name" value={base.name} onChange={handleBaseChange} placeholder="山田 太郎" className={inputClass} />
+                <input type="text" name="name" value={base.name} onChange={handleBaseChange} placeholder="例：山田 太郎" className={inputClass} />
                 {baseErrors.name && <p className={errClass}>{baseErrors.name}</p>}
               </div>
+            </div>
+
+            <div id="field-mail" tabIndex={-1} className="scroll-mt-6">
+              <label className={labelClass}>
+                メールアドレス <span className="text-rose-400">*</span>
+              </label>
+              <input type="email" name="mail" value={base.mail} onChange={handleBaseChange} placeholder="例：taro_yamada@hoyu.co.jp" className={inputClass} />
+              {baseErrors.mail && <p className={errClass}>⚠ {baseErrors.mail}</p>}
             </div>
 
             {/* ── 区切り線 ── */}
@@ -229,7 +243,7 @@ export default function StorageExtensionPage() {
                         {itemErrors[index]?.lotNo && <p className={errClass}>{itemErrors[index].lotNo}</p>}
                       </div>
                       <div>
-                        <label className={labelClass}>保管期限</label>
+                        <label className={labelClass}>新保管期限</label>
                         <input type="date" value={item.expiryDate} onChange={(e) => handleItemChange(index, "expiryDate", e.target.value)} className={inputClass} />
                         {itemErrors[index]?.expiryDate && <p className={errClass}>{itemErrors[index].expiryDate}</p>}
                       </div>

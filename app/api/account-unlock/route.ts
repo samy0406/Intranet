@@ -1,32 +1,32 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { writeFile, mkdir, readFile } from 'fs/promises'
-import { existsSync } from 'fs'
-import path from 'path'
-
-const DATA_FILE = path.join(process.cwd(), 'uploads', 'account_unlock.json')
+import { NextRequest, NextResponse } from "next/server";
+import { findAccountUnlock, deleteAccountUnlock } from "@/lib/db-account-unlock";
 
 export async function POST(request: NextRequest) {
   try {
-    const data       = await request.formData()
-    const department = data.get('department') as string
-    const name       = data.get('name')       as string
-    const accountCode = data.get('accountCode') as string
+    const data = await request.formData();
+    const department = data.get("department") as string;
+    const name = data.get("name") as string;
+    const mail = data.get("mail") as string;
+    const accountCode = data.get("accountCode") as string;
 
-    if (!department || !name || !accountCode) {
-      return NextResponse.json({ status: 'error', message: '必須項目を入力してください' }, { status: 400 })
+    if (!department || !name || !mail || !accountCode) {
+      return NextResponse.json({ status: "error", message: "必須項目を入力してください" }, { status: 400 });
     }
 
-    // JSONファイルに追記（DB代わり）
-    await mkdir(path.join(process.cwd(), 'uploads'), { recursive: true })
-    let existing: unknown[] = []
-    if (existsSync(DATA_FILE)) {
-      existing = JSON.parse(await readFile(DATA_FILE, 'utf-8'))
-    }
-    existing.push({ id: Date.now(), department, name, accountCode, createdAt: new Date().toLocaleString('ja-JP') })
-    await writeFile(DATA_FILE, JSON.stringify(existing, null, 2), 'utf-8')
+    // 存在確認
+    const exists = await findAccountUnlock(accountCode);
 
-    return NextResponse.json({ status: 'ok', message: '申請を受け付けました' })
-  } catch {
-    return NextResponse.json({ status: 'error', message: 'サーバーエラーが発生しました' }, { status: 500 })
+    if (!exists) {
+      // T_LOGIN にない = 現在ログインされていない
+      return NextResponse.json({ status: "error", message: "現在ログインされていません" }, { status: 400 });
+    }
+
+    // T_LOGIN から削除（ロック解除）
+    await deleteAccountUnlock(accountCode);
+
+    return NextResponse.json({ status: "ok", message: "解除しました" });
+  } catch (error) {
+    console.error("DB error:", error);
+    return NextResponse.json({ status: "error", message: "サーバーエラーが発生しました" }, { status: 500 });
   }
 }

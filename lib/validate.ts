@@ -16,6 +16,12 @@ export function validateInquiryForm(form: InquiryFormData, screenshot: File | nu
     errors.department = "部署を入力してください";
   }
 
+  if (!form.mail.trim()) {
+    errors.mail = "メールアドレスを入力してください";
+  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.mail)) {
+    errors.mail = "正しい形式で入力してください";
+  }
+
   if (!form.title.trim()) {
     errors.title = "表題を入力してください";
   }

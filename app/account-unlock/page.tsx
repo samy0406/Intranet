@@ -24,7 +24,11 @@ function validate(form: FormData): Errors {
   const errors: Errors = {};
   if (!form.department.trim()) errors.department = "部署を入力してください";
   if (!form.name.trim()) errors.name = "名前を入力してください";
-  if (!form.mail.trim()) errors.mail = "メールアドレスを入力してください";
+  if (!form.mail.trim()) {
+    errors.mail = "メールアドレスを入力してください";
+  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.mail)) {
+    errors.mail = "正しい形式で入力してください";
+  }
   if (!form.accountCode.trim()) errors.accountCode = "アカウントコードを入力してください";
   return errors;
 }
@@ -134,7 +138,7 @@ export default function AccountUnlockPage() {
               <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5">
                 名前 <span className="text-rose-400">*</span>
               </label>
-              <input type="text" name="name" value={form.name} onChange={handleChange} placeholder="山田 太郎" className={inputClass} />
+              <input type="text" name="name" value={form.name} onChange={handleChange} placeholder="例：山田 太郎" className={inputClass} />
               {errors.name && <p className="text-rose-400 text-xs mt-1">⚠ {errors.name}</p>}
             </div>
 
@@ -143,7 +147,7 @@ export default function AccountUnlockPage() {
               <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5">
                 メールアドレス <span className="text-rose-400">*</span>
               </label>
-              <input type="text" name="mail" value={form.mail} onChange={handleChange} placeholder="hoyuメールアドレス" className={inputClass} />
+              <input type="email" name="mail" value={form.mail} onChange={handleChange} placeholder="例：taro_yamada@hoyu.co.jp" className={inputClass} />
               {errors.mail && <p className="text-rose-400 text-xs mt-1">⚠ {errors.mail}</p>}
             </div>
 

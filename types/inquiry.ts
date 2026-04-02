@@ -12,6 +12,7 @@ export type UrgencyOption = (typeof URGENCY_OPTIONS)[number];
 export type InquiryFormData = {
   name: string; // お名前
   department: string; // 部署
+  mail: string; // メールアドレス
   title: string; // 表題
   urgency: string; // 緊急度
   screenPath: string; // 画面の開き方
@@ -25,6 +26,7 @@ export type InquiryFormData = {
 export type InquiryFormErrors = {
   name?: string;
   department?: string;
+  mail?: string;
   title?: string;
   urgency?: string;
   screenPath?: string;

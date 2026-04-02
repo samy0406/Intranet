@@ -23,6 +23,7 @@ export default function HomePage() {
   const [form, setForm] = useState<InquiryFormData>({
     name: "",
     department: "",
+    mail: "",
     title: "",
     urgency: "",
     screenPath: "",
@@ -104,7 +105,7 @@ export default function HomePage() {
     // エラーがあれば止める
     if (Object.keys(newErrors).length > 0) {
       // エラーのキーの順番（画面の上から順に定義）
-      const fieldOrder: (keyof InquiryFormErrors)[] = ["name", "department", "title", "urgency", "reason", "approver", "message", "screenshot", "resolution"];
+      const fieldOrder: (keyof InquiryFormErrors)[] = ["name", "department", "mail", "title", "urgency", "reason", "approver", "message", "screenshot", "resolution"];
 
       // 最初にエラーがある項目を探す
       const firstErrorKey = fieldOrder.find((key) => newErrors[key]);
@@ -173,16 +174,17 @@ export default function HomePage() {
           {/* ── 名前・部署 ── */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="お名前" required error={errors.name} id="field-name">
-              <input type="text" name="name" value={form.name} onChange={handleChange} placeholder="山田 太郎" className={inputClass} />
+              <input type="text" name="name" value={form.name} onChange={handleChange} placeholder="例：山田 太郎" className={inputClass} />
             </Field>
             <Field label="部署" required error={errors.department} id="field-department">
               <input type="text" name="department" value={form.department} onChange={handleChange} placeholder="例：包装課" className={inputClass} />
             </Field>
           </div>
 
-          {/* ── 区切り線 ── */}
-          <hr className="border-slate-100" />
-
+          {/* ── メールアドレス ── */}
+          <Field label="メールアドレス" required error={errors.mail} id="field-mail">
+            <input type="email" name="mail" value={form.mail} onChange={handleChange} placeholder="例：taro_yamada@hoyu.co.jp" className={inputClass} />
+          </Field>
           {/* ── 表題 ── */}
           <Field label="表題" required error={errors.title} id="field-title">
             <input type="text" name="title" value={form.title} onChange={handleChange} placeholder="〇〇の依頼" className={inputClass} />

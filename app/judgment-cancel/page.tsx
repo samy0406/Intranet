@@ -9,6 +9,7 @@ import { ScreenshotInput } from "@/components/ScreenshotInput";
 type FormData = {
   department: string;
   name: string;
+  mail: string;
   itemCode: string;
   lotNo: string;
 };
@@ -16,6 +17,7 @@ type FormData = {
 type Errors = {
   department?: string;
   name?: string;
+  mail?: string;
   screenshot?: string;
   itemCode?: string;
   lotNo?: string;
@@ -28,6 +30,11 @@ function validate(form: FormData, screenshot: File | null): Errors {
   const errors: Errors = {};
   if (!form.department.trim()) errors.department = "部署を入力してください";
   if (!form.name.trim()) errors.name = "名前を入力してください";
+  if (!form.mail.trim()) {
+    errors.mail = "メールアドレスを入力してください";
+  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.mail)) {
+    errors.mail = "正しい形式で入力してください";
+  }
   if (!screenshot) errors.screenshot = "スクリーンショットを貼り付けてください";
   if (!form.itemCode.trim()) errors.itemCode = "品目コードを入力してください";
   if (!form.lotNo.trim()) errors.lotNo = "ロットNOを入力してください";
@@ -35,7 +42,7 @@ function validate(form: FormData, screenshot: File | null): Errors {
 }
 
 export default function JudgmentCancelPage() {
-  const [form, setForm] = useState<FormData>({ department: "", name: "", itemCode: "", lotNo: "" });
+  const [form, setForm] = useState<FormData>({ department: "", name: "", mail: "", itemCode: "", lotNo: "" });
   const [screenshot, setScreenshot] = useState<File | null>(null);
   const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null);
   const [errors, setErrors] = useState<Errors>({});
@@ -76,7 +83,7 @@ export default function JudgmentCancelPage() {
     setErrors(newErrors);
 
     if (Object.keys(newErrors).length > 0) {
-      const fieldOrder: (keyof Errors)[] = ["department", "name", "screenshot", "itemCode", "lotNo"];
+      const fieldOrder: (keyof Errors)[] = ["department", "name", "mail", "screenshot", "itemCode", "lotNo"];
       const firstKey = fieldOrder.find((k) => newErrors[k]);
       if (firstKey) {
         setTimeout(() => {
@@ -163,9 +170,18 @@ export default function JudgmentCancelPage() {
                 <label className={labelClass}>
                   名前 <span className="text-rose-400">*</span>
                 </label>
-                <input type="text" name="name" value={form.name} onChange={handleChange} placeholder="山田 太郎" className={inputClass} />
+                <input type="text" name="name" value={form.name} onChange={handleChange} placeholder="例：山田 太郎" className={inputClass} />
                 {errors.name && <p className={errClass}>⚠ {errors.name}</p>}
               </div>
+            </div>
+
+            {/* ── メールアドレス ── */}
+            <div id="field-mail" tabIndex={-1} className="scroll-mt-6">
+              <label className={labelClass}>
+                メールアドレス <span className="text-rose-400">*</span>
+              </label>
+              <input type="email" name="mail" value={form.mail} onChange={handleChange} placeholder="例：taro_yamada@hoyu.co.jp" className={inputClass} />
+              {errors.mail && <p className={errClass}>⚠ {errors.mail}</p>}
             </div>
 
             {/* ── スクリーンショット ── */}
