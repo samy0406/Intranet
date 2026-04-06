@@ -64,18 +64,27 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
     const filename = file ? await saveFile(file, "file") : null;
     const screenshotFilename = screenshot ? await saveFile(screenshot, "screenshot") : null;
 
+    // POSTデータから mail / reason / approver を取得
+    const mail = data.get("mail") as string;
+    const reason = data.get("reason") as string;
+    const approver = data.get("approver") as string;
+
     // ── テキストデータを JSON ファイルに保存（DB代わり）──
     await saveTextData({
       id: Date.now(), // 仮のID（タイムスタンプ）
       name,
       department,
+      mail,
       title,
       urgency,
       screenPath,
       message,
       resolution,
+      reason,
+      approver,
       filename,
       screenshot: screenshotFilename,
+      status: "未対応", // 初期ステータス
       createdAt: new Date().toLocaleString("ja-JP"), // 日本時間で保存
     });
 

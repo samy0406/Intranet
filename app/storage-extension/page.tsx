@@ -191,7 +191,7 @@ export default function StorageExtensionPage() {
                 <label className={labelClass}>
                   名前 <span className="text-rose-400">*</span>
                 </label>
-                <input type="text" name="name" value={base.name} onChange={handleBaseChange} placeholder="例：山田 太郎" className={inputClass} />
+                <input type="text" name="name" value={base.name} onChange={handleBaseChange} placeholder="例：山田太郎" className={inputClass} />
                 {baseErrors.name && <p className={errClass}>{baseErrors.name}</p>}
               </div>
             </div>

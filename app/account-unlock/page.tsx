@@ -87,8 +87,9 @@ export default function AccountUnlockPage() {
           <div className="w-14 h-14 bg-amber-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
             <span className="text-2xl">🔓</span>
           </div>
-          <h2 className="text-white font-bold text-lg mb-2">申請を受け付けました</h2>
-          <p className="text-slate-400 text-sm mb-8">担当者より折り返しご連絡します。</p>
+          <h2 className="text-white font-bold text-lg mb-2">ロックを解除しました</h2>
+          <p className="text-slate-400 text-sm mb-8">ログインをお試しください。</p>
+          <p className="text-slate-400 text-sm mb-8">こちらの処理でログインできなかった場合、情報システム部にご連絡ください。</p>
           <button
             onClick={() => router.push("/")}
             className="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400
@@ -138,7 +139,7 @@ export default function AccountUnlockPage() {
               <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5">
                 名前 <span className="text-rose-400">*</span>
               </label>
-              <input type="text" name="name" value={form.name} onChange={handleChange} placeholder="例：山田 太郎" className={inputClass} />
+              <input type="text" name="name" value={form.name} onChange={handleChange} placeholder="例：山田太郎" className={inputClass} />
               {errors.name && <p className="text-rose-400 text-xs mt-1">⚠ {errors.name}</p>}
             </div>
 

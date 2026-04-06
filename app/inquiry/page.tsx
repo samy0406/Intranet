@@ -174,7 +174,7 @@ export default function HomePage() {
           {/* ── 名前・部署 ── */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="お名前" required error={errors.name} id="field-name">
-              <input type="text" name="name" value={form.name} onChange={handleChange} placeholder="例：山田 太郎" className={inputClass} />
+              <input type="text" name="name" value={form.name} onChange={handleChange} placeholder="例：山田太郎" className={inputClass} />
             </Field>
             <Field label="部署" required error={errors.department} id="field-department">
               <input type="text" name="department" value={form.department} onChange={handleChange} placeholder="例：包装課" className={inputClass} />

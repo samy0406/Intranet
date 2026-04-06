@@ -170,7 +170,7 @@ export default function JudgmentCancelPage() {
                 <label className={labelClass}>
                   名前 <span className="text-rose-400">*</span>
                 </label>
-                <input type="text" name="name" value={form.name} onChange={handleChange} placeholder="例：山田 太郎" className={inputClass} />
+                <input type="text" name="name" value={form.name} onChange={handleChange} placeholder="例：山田太郎" className={inputClass} />
                 {errors.name && <p className={errClass}>⚠ {errors.name}</p>}
               </div>
             </div>

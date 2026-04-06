@@ -3,6 +3,7 @@ import { findAccountUnlock, deleteAccountUnlock } from "@/lib/db-account-unlock"
 
 export async function POST(request: NextRequest) {
   try {
+    // await = データが届くまで待つ
     const data = await request.formData();
     const department = data.get("department") as string;
     const name = data.get("name") as string;

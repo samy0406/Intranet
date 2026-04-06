@@ -4,11 +4,13 @@
 // 申請一覧ページ
 // 場所: app/admin/inquiries/page.tsx
 //
-// このページでできること:
-//  - 送信された問い合わせをテーブルで一覧表示
-//  - ステータスをクリックでトグル（未対応→対応中→完了→未対応...）
-//  - メールアドレスをクリックするとOutlookが起動
-//  - 行をクリックすると詳細ページに遷移
+// 列構成: 日付・表題・緊急度・ステータス・メール・対応者・完了日付・対応内容
+//
+// ・ステータス    → このページでトグル変更できる
+// ・対応者        → 詳細ページ（[id]/page.tsx）で入力した値を読み取り専用で表示
+// ・完了日付      → 同上
+// ・対応内容      → 同上（長い場合は2行まで省略表示）
+// ・行クリック    → 詳細ページへ遷移
 // ============================================================
 
 import { useState, useEffect } from "react";
@@ -16,50 +18,43 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 // ── 型定義 ──────────────────────────────────────────────────
-
-// APIから返ってくるデータの型（inquiries.jsonの1レコードに対応）
-type Inquiry = {
-  id: number;
-  name: string; // お名前
-  department: string; // 部署
-  mail: string; // メールアドレス
-  title: string; // 表題
-  urgency: string; // 緊急度
-  screenPath: string; // 画面の開き方
-  message: string; // 問い合わせ経緯
-  resolution: string; // 対応希望内容
-  reason: string; // 緊急の理由
-  approver: string; // 承認者
-  filename: string | null;
-  screenshot: string | null;
-  createdAt: string; // 送信日時
-  status: InquiryStatus; // ステータス
-  handler: string; // 対応者（管理者が記入）
-  completedAt: string; // 完了日付（管理者が記入）
-  responseNote: string; // 対応内容（管理者が記入）
-};
-
-// ステータスの取りうる値を型として定義
 type InquiryStatus = "未対応" | "対応中" | "完了";
 
-// ── ステータスの色設定 ──────────────────────────────────────
+type Inquiry = {
+  id: number;
+  name: string;
+  department: string;
+  mail: string;
+  title: string;
+  urgency: string;
+  screenPath: string;
+  message: string;
+  resolution: string;
+  reason: string;
+  approver: string;
+  filename: string | null;
+  screenshot: string | null;
+  createdAt: string;
+  status: InquiryStatus;
+  handler: string; // 対応者（詳細ページで入力）
+  completedAt: string; // 完了日付（詳細ページで入力）
+  responseNote: string; // 対応内容（詳細ページで入力）
+};
 
-// ステータスごとにバッジの見た目を変える
+// ── スタイル定数 ────────────────────────────────────────────
 const STATUS_STYLE: Record<InquiryStatus, string> = {
   未対応: "bg-red-100 text-red-700 border border-red-200",
   対応中: "bg-yellow-100 text-yellow-700 border border-yellow-200",
   完了: "bg-emerald-100 text-emerald-700 border border-emerald-200",
 };
 
-// トグルで次のステータスに切り替えるマップ
-// 未対応 → 対応中 → 完了 → 未対応 ... とループ
+// 未対応→対応中→完了→未対応 とループ
 const NEXT_STATUS: Record<InquiryStatus, InquiryStatus> = {
   未対応: "対応中",
   対応中: "完了",
   完了: "未対応",
 };
 
-// ── 緊急度の色設定 ──────────────────────────────────────────
 const URGENCY_STYLE: Record<string, string> = {
   至急: "bg-red-100 text-red-700",
   高: "bg-orange-100 text-orange-700",
@@ -71,79 +66,46 @@ const URGENCY_STYLE: Record<string, string> = {
 // メインコンポーネント
 // ============================================================
 export default function InquiriesPage() {
-  // 問い合わせデータの配列。最初はnull（未取得状態）
   const [inquiries, setInquiries] = useState<Inquiry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  // ── データ取得（ページ表示時に1回だけ実行） ────────────
+  // ── 初回データ取得 ──────────────────────────────────────
   useEffect(() => {
-    // fetchでAPIからデータを取得
     fetch("/api/admin/inquiries")
       .then((res) => {
         if (!res.ok) throw new Error("データの取得に失敗しました");
-        return res.json(); // JSONに変換
+        return res.json();
       })
       .then((data: Inquiry[]) => setInquiries(data))
       .catch((err: Error) => setError(err.message));
   }, []); // [] = マウント時（初回表示時）だけ実行
 
   // ── ステータスのトグル処理 ──────────────────────────────
-  const handleStatusToggle = async (
-    e: React.MouseEvent, // クリックイベント
-    inquiry: Inquiry, // 対象の問い合わせ
-  ) => {
-    // e.stopPropagation() = 行クリックイベントに伝播しないようにする
-    // ← これがないとステータスを変えようとしたら詳細ページに飛んでしまう
+  const handleStatusToggle = async (e: React.MouseEvent, inquiry: Inquiry) => {
+    // stopPropagation = 行クリック（詳細遷移）に伝播させない
     e.stopPropagation();
 
     const nextStatus = NEXT_STATUS[inquiry.status ?? "未対応"];
 
     // 楽観的UI更新：APIの応答を待たずに画面を先に変える
-    // → ユーザーが即座に変化を感じられる
     setInquiries((prev) => prev?.map((item) => (item.id === inquiry.id ? { ...item, status: nextStatus } : item)) ?? null);
 
     try {
-      // APIにPATCHリクエストを送ってJSONファイルも更新
       const res = await fetch(`/api/admin/inquiries/${inquiry.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: nextStatus }),
       });
-
       if (!res.ok) throw new Error("更新失敗");
     } catch {
-      // 失敗したら元に戻す（楽観的更新のロールバック）
+      // 失敗したら元のステータスに戻す（ロールバック）
       setInquiries((prev) => prev?.map((item) => (item.id === inquiry.id ? { ...item, status: inquiry.status } : item)) ?? null);
       alert("ステータスの更新に失敗しました");
     }
   };
 
-  // ── テキストフィールドの更新処理（フォーカスが外れたとき保存） ──
-  // fieldName = "handler" | "completedAt" | "responseNote"
-  // value     = 入力された文字列
-  const handleFieldUpdate = async (id: number, fieldName: "handler" | "completedAt" | "responseNote", value: string) => {
-    // まず画面のstateを更新（楽観的UI）
-    setInquiries(
-      (prev) =>
-        prev?.map(
-          (item) => (item.id === id ? { ...item, [fieldName]: value } : item),
-          // [fieldName] = 変数をキーとして使う「計算プロパティ名」
-        ) ?? null,
-    );
-
-    try {
-      await fetch(`/api/admin/inquiries/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ [fieldName]: value }),
-        // { [fieldName]: value } = 例: { handler: "山田" }
-      });
-    } catch {
-      alert("保存に失敗しました");
-    }
-  };
-
+  // ── ローディング ────────────────────────────────────────
   if (inquiries === null && !error) {
     return (
       <main className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -152,7 +114,7 @@ export default function InquiriesPage() {
     );
   }
 
-  // ── エラー表示 ──────────────────────────────────────────
+  // ── エラー ──────────────────────────────────────────────
   if (error) {
     return (
       <main className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -173,21 +135,20 @@ export default function InquiriesPage() {
           </div>
           <h1 className="text-3xl font-bold text-slate-800 tracking-tight">申請一覧</h1>
           <p className="text-slate-400 text-sm mt-1">
-            全 <span className="font-semibold text-slate-600">{inquiries?.length ?? 0}</span> 件
+            全 <span className="font-semibold text-slate-600">{inquiries?.length ?? 0}</span> 件<span className="ml-3 text-xs">（行クリックで詳細・対応記録の入力ができます）</span>
           </p>
         </div>
 
-        {/* 件数が0件のとき */}
+        {/* 0件のとき */}
         {inquiries?.length === 0 ? (
           <div className="bg-white rounded-2xl border border-slate-100 p-12 text-center text-slate-400">まだ問い合わせはありません</div>
         ) : (
-          // テーブルをスクロール可能なコンテナで囲む（横幅が足りないとき用）
+          // overflow-x-auto = 列が多くて横幅が足りないときにスクロールできる
           <div className="overflow-x-auto rounded-2xl border border-slate-200 shadow-sm">
             <table className="w-full text-sm bg-white">
-              {/* テーブルヘッダー */}
+              {/* ── テーブルヘッダー ── */}
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
-                  {/* 各列のヘッダー */}
                   <th className="px-4 py-3 text-left font-semibold text-slate-600 whitespace-nowrap">日付</th>
                   <th className="px-4 py-3 text-left font-semibold text-slate-600 whitespace-nowrap">表題</th>
                   <th className="px-4 py-3 text-left font-semibold text-slate-600 whitespace-nowrap">緊急度</th>
@@ -195,20 +156,19 @@ export default function InquiriesPage() {
                   <th className="px-4 py-3 text-left font-semibold text-slate-600 whitespace-nowrap">メールアドレス</th>
                   <th className="px-4 py-3 text-left font-semibold text-slate-600 whitespace-nowrap">対応者</th>
                   <th className="px-4 py-3 text-left font-semibold text-slate-600 whitespace-nowrap">完了日付</th>
-                  <th className="px-4 py-3 text-left font-semibold text-slate-600 whitespace-nowrap">対応内容</th>
                 </tr>
               </thead>
 
-              {/* テーブルボディ */}
+              {/* ── テーブルボディ ── */}
               <tbody className="divide-y divide-slate-100">
                 {inquiries?.map((item) => (
-                  // 行クリック → 詳細ページに遷移
+                  // 行クリック → 詳細ページへ遷移
                   <tr key={item.id} onClick={() => router.push(`/admin/inquiries/${item.id}`)} className="hover:bg-slate-50 cursor-pointer transition-colors">
                     {/* 日付 */}
-                    <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{item.createdAt}</td>
+                    <td className="px-4 py-3 text-slate-500 whitespace-nowrap text-xs">{item.createdAt}</td>
 
                     {/* 表題 */}
-                    <td className="px-4 py-3 text-slate-700 max-w-xs truncate">{item.title}</td>
+                    <td className="px-4 py-3 text-slate-700 max-w-[180px] truncate font-medium">{item.title}</td>
 
                     {/* 緊急度バッジ */}
                     <td className="px-4 py-3">
@@ -219,11 +179,10 @@ export default function InquiriesPage() {
                     <td className="px-4 py-3">
                       <button
                         onClick={(e) => handleStatusToggle(e, item)}
-                        // title = ホバー時にツールチップ表示
                         title="クリックでステータスを変更"
                         className={`
                           px-3 py-1 rounded-full text-xs font-bold transition-all
-                          hover:opacity-80 active:scale-95 cursor-pointer
+                          hover:opacity-80 active:scale-95 cursor-pointer whitespace-nowrap
                           ${STATUS_STYLE[item.status ?? "未対応"]}
                         `}
                       >
@@ -234,8 +193,8 @@ export default function InquiriesPage() {
                     {/* メールアドレス（クリックでOutlook起動） */}
                     <td className="px-4 py-3">
                       {item.mail ? (
-                        // e.stopPropagation() で行クリックへの伝播を止める
-                        <a href={`mailto:${item.mail}?subject=【お問い合わせ】${encodeURIComponent(item.title)}`} onClick={(e) => e.stopPropagation()} className="text-indigo-600 hover:underline hover:text-indigo-800 transition-colors">
+                        // e.stopPropagation() = メールリンクのクリックが行遷移に伝わらないようにする
+                        <a href={`mailto:${item.mail}?subject=【お問い合わせ】${encodeURIComponent(item.title)}`} onClick={(e) => e.stopPropagation()} className="text-indigo-600 hover:underline hover:text-indigo-800 transition-colors text-xs">
                           {item.mail}
                         </a>
                       ) : (
@@ -243,34 +202,11 @@ export default function InquiriesPage() {
                       )}
                     </td>
 
-                    {/* 対応者（テキスト入力） */}
-                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                      {/* onClick stopPropagation = セルをクリックしても行遷移しない */}
-                      <input
-                        type="text"
-                        defaultValue={item.handler ?? ""}
-                        onBlur={(e) => handleFieldUpdate(item.id, "handler", e.target.value)}
-                        // onBlur = フォーカスが外れたとき（入力確定とみなして保存）
-                        className={cellInputClass}
-                      />
-                    </td>
+                    {/* 対応者（詳細ページで入力した値を表示） */}
+                    <td className="px-4 py-3 whitespace-nowrap">{item.handler ? <span className="text-slate-700 text-xs">{item.handler}</span> : <span className="text-slate-300">—</span>}</td>
 
-                    {/* 完了日付（日付入力） */}
-                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                      <input type="date" defaultValue={item.completedAt ?? ""} onBlur={(e) => handleFieldUpdate(item.id, "completedAt", e.target.value)} className={cellInputClass} />
-                    </td>
-
-                    {/* 対応内容（テキストエリア） */}
-                    <td className="px-4 py-3 min-w-[200px]" onClick={(e) => e.stopPropagation()}>
-                      <textarea
-                        defaultValue={item.responseNote ?? ""}
-                        placeholder="対応内容を記入..."
-                        rows={2}
-                        onBlur={(e) => handleFieldUpdate(item.id, "responseNote", e.target.value)}
-                        // resize-none = ユーザーがサイズ変更できないようにする
-                        className={`${cellInputClass} resize-none`}
-                      />
-                    </td>
+                    {/* 完了日付（詳細ページで入力した値を表示） */}
+                    <td className="px-4 py-3 whitespace-nowrap">{item.completedAt ? <span className="text-slate-500 text-xs">{item.completedAt}</span> : <span className="text-slate-300">—</span>}</td>
                   </tr>
                 ))}
               </tbody>
@@ -288,13 +224,3 @@ export default function InquiriesPage() {
     </main>
   );
 }
-
-// ── テーブルセル内の入力フィールド共通スタイル ──────────────
-// 普段は背景透明でボーダーなし → ホバー・フォーカスで白背景＋枠が現れる
-// → 「普段はテキスト、クリックしたら入力欄」に見える
-const cellInputClass = `
-  w-full px-2 py-1.5 rounded-lg border border-transparent text-slate-700 text-xs bg-transparent
-  hover:border-slate-200 hover:bg-white
-  focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-transparent focus:bg-white
-  transition placeholder-slate-300
-`;
