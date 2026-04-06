@@ -36,30 +36,30 @@ type Inquiry = {
   screenshot: string | null;
   createdAt: string;
   status: InquiryStatus;
-  handler: string; // 対応者（詳細ページで入力）
-  completedAt: string; // 完了日付（詳細ページで入力）
-  responseNote: string; // 対応内容（詳細ページで入力）
+  handler: string;       // 対応者（詳細ページで入力）
+  completedAt: string;   // 完了日付（詳細ページで入力）
+  responseNote: string;  // 対応内容（詳細ページで入力）
 };
 
 // ── スタイル定数 ────────────────────────────────────────────
 const STATUS_STYLE: Record<InquiryStatus, string> = {
   未対応: "bg-red-100 text-red-700 border border-red-200",
   対応中: "bg-yellow-100 text-yellow-700 border border-yellow-200",
-  完了: "bg-emerald-100 text-emerald-700 border border-emerald-200",
+  完了:   "bg-emerald-100 text-emerald-700 border border-emerald-200",
 };
 
 // 未対応→対応中→完了→未対応 とループ
 const NEXT_STATUS: Record<InquiryStatus, InquiryStatus> = {
   未対応: "対応中",
   対応中: "完了",
-  完了: "未対応",
+  完了:   "未対応",
 };
 
 const URGENCY_STYLE: Record<string, string> = {
   至急: "bg-red-100 text-red-700",
-  高: "bg-orange-100 text-orange-700",
-  中: "bg-yellow-100 text-yellow-700",
-  低: "bg-slate-100 text-slate-500",
+  高:   "bg-orange-100 text-orange-700",
+  中:   "bg-yellow-100 text-yellow-700",
+  低:   "bg-slate-100 text-slate-500",
 };
 
 // ============================================================
@@ -67,7 +67,7 @@ const URGENCY_STYLE: Record<string, string> = {
 // ============================================================
 export default function InquiriesPage() {
   const [inquiries, setInquiries] = useState<Inquiry[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError]         = useState<string | null>(null);
   const router = useRouter();
 
   // ── 初回データ取得 ──────────────────────────────────────
@@ -89,7 +89,11 @@ export default function InquiriesPage() {
     const nextStatus = NEXT_STATUS[inquiry.status ?? "未対応"];
 
     // 楽観的UI更新：APIの応答を待たずに画面を先に変える
-    setInquiries((prev) => prev?.map((item) => (item.id === inquiry.id ? { ...item, status: nextStatus } : item)) ?? null);
+    setInquiries((prev) =>
+      prev?.map((item) =>
+        item.id === inquiry.id ? { ...item, status: nextStatus } : item
+      ) ?? null
+    );
 
     try {
       const res = await fetch(`/api/admin/inquiries/${inquiry.id}`, {
@@ -100,7 +104,11 @@ export default function InquiriesPage() {
       if (!res.ok) throw new Error("更新失敗");
     } catch {
       // 失敗したら元のステータスに戻す（ロールバック）
-      setInquiries((prev) => prev?.map((item) => (item.id === inquiry.id ? { ...item, status: inquiry.status } : item)) ?? null);
+      setInquiries((prev) =>
+        prev?.map((item) =>
+          item.id === inquiry.id ? { ...item, status: inquiry.status } : item
+        ) ?? null
+      );
       alert("ステータスの更新に失敗しました");
     }
   };
@@ -127,6 +135,7 @@ export default function InquiriesPage() {
   return (
     <main className="min-h-screen bg-slate-50 p-6 sm:p-10">
       <div className="max-w-7xl mx-auto">
+
         {/* ヘッダー */}
         <div className="mb-8">
           <div className="flex items-center gap-2 mb-2">
@@ -135,22 +144,27 @@ export default function InquiriesPage() {
           </div>
           <h1 className="text-3xl font-bold text-slate-800 tracking-tight">申請一覧</h1>
           <p className="text-slate-400 text-sm mt-1">
-            全 <span className="font-semibold text-slate-600">{inquiries?.length ?? 0}</span> 件<span className="ml-3 text-xs">（行クリックで詳細・対応記録の入力ができます）</span>
+            全 <span className="font-semibold text-slate-600">{inquiries?.length ?? 0}</span> 件
+            <span className="ml-3 text-xs">（行クリックで詳細・対応記録の入力ができます）</span>
           </p>
         </div>
 
         {/* 0件のとき */}
         {inquiries?.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-slate-100 p-12 text-center text-slate-400">まだ問い合わせはありません</div>
+          <div className="bg-white rounded-2xl border border-slate-100 p-12 text-center text-slate-400">
+            まだ問い合わせはありません
+          </div>
         ) : (
           // overflow-x-auto = 列が多くて横幅が足りないときにスクロールできる
           <div className="overflow-x-auto rounded-2xl border border-slate-200 shadow-sm">
             <table className="w-full text-sm bg-white">
+
               {/* ── テーブルヘッダー ── */}
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
                   <th className="px-4 py-3 text-left font-semibold text-slate-600 whitespace-nowrap">日付</th>
                   <th className="px-4 py-3 text-left font-semibold text-slate-600 whitespace-nowrap">表題</th>
+                  <th className="px-4 py-3 text-left font-semibold text-slate-600 whitespace-nowrap">お名前</th>
                   <th className="px-4 py-3 text-left font-semibold text-slate-600 whitespace-nowrap">緊急度</th>
                   <th className="px-4 py-3 text-left font-semibold text-slate-600 whitespace-nowrap">ステータス</th>
                   <th className="px-4 py-3 text-left font-semibold text-slate-600 whitespace-nowrap">メールアドレス</th>
@@ -163,16 +177,35 @@ export default function InquiriesPage() {
               <tbody className="divide-y divide-slate-100">
                 {inquiries?.map((item) => (
                   // 行クリック → 詳細ページへ遷移
-                  <tr key={item.id} onClick={() => router.push(`/admin/inquiries/${item.id}`)} className="hover:bg-slate-50 cursor-pointer transition-colors">
+                  <tr
+                    key={item.id}
+                    onClick={() => router.push(`/admin/inquiries/${item.id}`)}
+                    className="hover:bg-slate-50 cursor-pointer transition-colors"
+                  >
+
                     {/* 日付 */}
-                    <td className="px-4 py-3 text-slate-500 whitespace-nowrap text-xs">{item.createdAt}</td>
+                    <td className="px-4 py-3 text-slate-500 whitespace-nowrap text-xs">
+                      {item.createdAt}
+                    </td>
 
                     {/* 表題 */}
-                    <td className="px-4 py-3 text-slate-700 max-w-[180px] truncate font-medium">{item.title}</td>
+                    <td className="px-4 py-3 text-slate-700 max-w-[180px] truncate font-medium">
+                      {item.title}
+                    </td>
+
+                    {/* お名前 + 部署 */}
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <span className="text-slate-700 text-xs">{item.name}</span>
+                      {item.department && (
+                        <span className="ml-1 text-xs text-slate-400">({item.department})</span>
+                      )}
+                    </td>
 
                     {/* 緊急度バッジ */}
                     <td className="px-4 py-3">
-                      <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold ${URGENCY_STYLE[item.urgency] ?? "bg-slate-100 text-slate-500"}`}>{item.urgency}</span>
+                      <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold ${URGENCY_STYLE[item.urgency] ?? "bg-slate-100 text-slate-500"}`}>
+                        {item.urgency}
+                      </span>
                     </td>
 
                     {/* ステータス（クリックでトグル） */}
@@ -194,7 +227,11 @@ export default function InquiriesPage() {
                     <td className="px-4 py-3">
                       {item.mail ? (
                         // e.stopPropagation() = メールリンクのクリックが行遷移に伝わらないようにする
-                        <a href={`mailto:${item.mail}?subject=【お問い合わせ】${encodeURIComponent(item.title)}`} onClick={(e) => e.stopPropagation()} className="text-indigo-600 hover:underline hover:text-indigo-800 transition-colors text-xs">
+                        <a
+                          href={`mailto:${item.mail}?subject=【お問い合わせ】${encodeURIComponent(item.title)}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-indigo-600 hover:underline hover:text-indigo-800 transition-colors text-xs"
+                        >
                           {item.mail}
                         </a>
                       ) : (
@@ -203,10 +240,21 @@ export default function InquiriesPage() {
                     </td>
 
                     {/* 対応者（詳細ページで入力した値を表示） */}
-                    <td className="px-4 py-3 whitespace-nowrap">{item.handler ? <span className="text-slate-700 text-xs">{item.handler}</span> : <span className="text-slate-300">—</span>}</td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {item.handler
+                        ? <span className="text-slate-700 text-xs">{item.handler}</span>
+                        : <span className="text-slate-300">—</span>
+                      }
+                    </td>
 
                     {/* 完了日付（詳細ページで入力した値を表示） */}
-                    <td className="px-4 py-3 whitespace-nowrap">{item.completedAt ? <span className="text-slate-500 text-xs">{item.completedAt}</span> : <span className="text-slate-300">—</span>}</td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {item.completedAt
+                        ? <span className="text-slate-500 text-xs">{item.completedAt}</span>
+                        : <span className="text-slate-300">—</span>
+                      }
+                    </td>
+
                   </tr>
                 ))}
               </tbody>
