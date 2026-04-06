@@ -69,27 +69,19 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
     const reason = data.get("reason") as string;
     const approver = data.get("approver") as string;
 
-    // ── テキストデータを JSON ファイルに保存（DB代わり）──
-    await saveTextData({
-      id: Date.now(), // 仮のID（タイムスタンプ）
-      name,
-      department,
-      mail,
-      title,
-      urgency,
-      screenPath,
-      message,
-      resolution,
-      reason,
-      approver,
-      filename,
-      screenshot: screenshotFilename,
-      status: "未対応", // 初期ステータス
-      createdAt: new Date().toLocaleString("ja-JP"), // 日本時間で保存
+    // フォームのキー名 → DBカラム名に変換して渡す
+    await saveInquiry({
+      name: body.name,
+      busyo: body.department,
+      mailaddress: body.mail,
+      title: body.title,
+      urgency: body.urgency,
+      urgentReason: body.reason, // フォームの "reason"
+      urgentApproval: body.approver, // フォームの "approver"
+      howtoOpenScreen: body.screenPath,
+      background: body.background,
+      reqActon: body.resolution, // フォームの "resolution"
     });
-
-    // DB申請後はこちらに切り替え：
-    // saveInquiry({ name, department, title, urgency, screenPath, message, resolution, filename, screenshot: screenshotFilename })
 
     return NextResponse.json({ status: "ok", message: "送信完了しました" });
   } catch (error) {

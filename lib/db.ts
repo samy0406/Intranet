@@ -1,18 +1,13 @@
-// ================================================
-// データベース操作ユーティリティ（Oracle版）
-// ※ TODO コメントの箇所を実際のテーブル名・カラム名に変更してください
-// ================================================
+// lib/db.ts
 import oracledb from "oracledb";
 
-// ── Thick モード（Oracle Instant Client）の初期化 ──
 oracledb.initOracleClient({
   libDir: process.env.ORACLE_CLIENT_PATH,
 });
 
-// ── 接続設定 ──────────────────────────────────────
 const DB_CONFIG: oracledb.ConnectionAttributes = {
-  user:          process.env.ORACLE_USER,
-  password:      process.env.ORACLE_PASSWORD,
+  user: process.env.ORACLE_USER,
+  password: process.env.ORACLE_PASSWORD,
   connectString: process.env.ORACLE_CONN_STRING,
 };
 
@@ -20,55 +15,34 @@ async function getConnection(): Promise<oracledb.Connection> {
   return await oracledb.getConnection(DB_CONFIG);
 }
 
-// ================================================
-// 問い合わせ
-// ================================================
-
-const TABLE_INQUIRY = "INQUIRIES"; // TODO: テーブル名を変更
-
-export type InquiryRecord = {
-  name:          string;
-  department:    string;
-  mail:          string;
-  title:         string;
-  urgency:       string;
-  urgencyReason: string;
-  approver:      string;
-  screenPath:    string;
-  message:       string;
-  resolution:    string;
-  filename:      string | null;
-  screenshot:    string | null;
-};
-
-export async function saveInquiry(data: InquiryRecord): Promise<void> {
+// ── 問い合わせを1件保存する ────────────────────────
+export async function saveInquiry(data: { name: string; busyo?: string; mailaddress?: string; title?: string; urgency?: string; urgentReason?: string; urgentApproval?: string; howtoOpenScreen?: string; background?: string; reqActon?: string }): Promise<void> {
   const conn = await getConnection();
   try {
+    // MC_INQUIRY_NO はシーケンスから自動採番
+    // ★ シーケンス名が違う場合はここを修正してください
     await conn.execute(
-      // TODO: カラム名を変更
-      `INSERT INTO ${TABLE_INQUIRY} (
-        NAME, DEPARTMENT, MAIL, TITLE, URGENCY,
-        URGENCY_REASON, APPROVER, SCREEN_PATH,
-        MESSAGE, RESOLUTION, FILENAME, SCREENSHOT
-      ) VALUES (
-        :name, :department, :mail, :title, :urgency,
-        :urgencyReason, :approver, :screenPath,
-        :message, :resolution, :filename, :screenshot
-      )`,
+      `INSERT INTO MCTEST1.W_TBL_INQUIRY_RECORD
+        (MC_INQUIRY_NO, NAME, BUSYO, MAILADDRESS, TITLE,
+         URGENCY, URGENT_REASON, URGENT_APPROVAL,
+         HOWTO_OPEN_SCREEN, BACKGROUND, REQ_ACTON)
+       VALUES
+        (MCTEST1.SEQ_MC_INQUIRY_NO.NEXTVAL,
+         :name, :busyo, :mailaddress, :title,
+         :urgency, :urgentReason, :urgentApproval,
+         :howtoOpenScreen, :background, :reqActon)`,
       {
-        name:          data.name,
-        department:    data.department,
-        mail:          data.mail,
-        title:         data.title,
-        urgency:       data.urgency,
-        urgencyReason: data.urgencyReason,
-        approver:      data.approver,
-        screenPath:    data.screenPath,
-        message:       data.message,
-        resolution:    data.resolution,
-        filename:      data.filename,
-        screenshot:    data.screenshot,
-      }
+        name: data.name,
+        busyo: data.busyo ?? null,
+        mailaddress: data.mailaddress ?? null,
+        title: data.title ?? null,
+        urgency: data.urgency ?? null,
+        urgentReason: data.urgentReason ?? null,
+        urgentApproval: data.urgentApproval ?? null,
+        howtoOpenScreen: data.howtoOpenScreen ?? null,
+        background: data.background ?? null,
+        reqActon: data.reqActon ?? null,
+      },
     );
     await conn.commit();
   } finally {
@@ -76,185 +50,80 @@ export async function saveInquiry(data: InquiryRecord): Promise<void> {
   }
 }
 
-// ================================================
-// アカウントロック解除
-// ================================================
-
-const TABLE_ACCOUNT_UNLOCK = "ACCOUNT_UNLOCK"; // TODO: テーブル名を変更
-
-export type AccountUnlockRecord = {
-  department:  string;
-  name:        string;
-  mail:        string;
-  accountCode: string;
-};
-
-export async function saveAccountUnlock(data: AccountUnlockRecord): Promise<void> {
-  const conn = await getConnection();
-  try {
-    await conn.execute(
-      // TODO: カラム名を変更
-      `INSERT INTO ${TABLE_ACCOUNT_UNLOCK} (
-        DEPARTMENT, NAME, MAIL, ACCOUNT_CODE
-      ) VALUES (
-        :department, :name, :mail, :accountCode
-      )`,
-      {
-        department:  data.department,
-        name:        data.name,
-        mail:        data.mail,
-        accountCode: data.accountCode,
-      }
-    );
-    await conn.commit();
-  } finally {
-    await conn.close();
-  }
-}
-
-// アカウントコードで検索（処理状況確認用）
-// true = 申請レコードあり（処理中）、false = なし（ログイン可能）
-export async function findAccountUnlock(accountCode: string): Promise<boolean> {
+// ── 問い合わせを全件取得する（一覧表示用） ─────────
+export async function getAllInquiries() {
   const conn = await getConnection();
   try {
     const result = await conn.execute(
-      // TODO: カラム名を変更
-      `SELECT COUNT(*) AS CNT
-       FROM ${TABLE_ACCOUNT_UNLOCK}
-       WHERE ACCOUNT_CODE = :accountCode`,
-      { accountCode },
-      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+      `SELECT
+         MC_INQUIRY_NO                              AS "id",
+         TO_CHAR(INQUIRY_DATE, 'YYYY/MM/DD')        AS "date",
+         NAME                                       AS "name",
+         BUSYO                                      AS "department",
+         TITLE                                      AS "title",
+         URGENCY                                    AS "urgency",
+         MAILADDRESS                                AS "email",
+         -- CLOSED_DATE が入っていれば完了、なければ未対応
+         CASE WHEN CLOSED_DATE IS NOT NULL THEN '完了' ELSE '未対応' END AS "status"
+       FROM MCTEST1.W_TBL_INQUIRY_RECORD
+       ORDER BY INQUIRY_DATE DESC`,
+      {},
+      { outFormat: oracledb.OUT_FORMAT_OBJECT },
     );
-    const rows = result.rows as { CNT: number }[];
-    return rows[0].CNT > 0;
+    return result.rows ?? [];
   } finally {
     await conn.close();
   }
 }
 
-// ================================================
-// 保管期限延長
-// ================================================
-
-const TABLE_STORAGE_HEADER = "STORAGE_EXTENSION";       // TODO: テーブル名を変更
-const TABLE_STORAGE_ITEMS  = "STORAGE_EXTENSION_ITEMS"; // TODO: テーブル名を変更
-
-export type StorageExtensionRecord = {
-  department: string;
-  name:       string;
-  items: {
-    itemCode:   string;
-    lotNo:      string;
-    expiryDate: string;
-  }[];
-};
-
-export async function saveStorageExtension(data: StorageExtensionRecord): Promise<void> {
+// ── 問い合わせを1件取得する（詳細表示用） ──────────
+export async function getInquiryById(id: number) {
   const conn = await getConnection();
   try {
-    // ── 親レコード（ヘッダー）を保存してIDを取得 ──
-    // TODO: カラム名を変更
-    const headerResult = await conn.execute(
-      `INSERT INTO ${TABLE_STORAGE_HEADER} (DEPARTMENT, NAME)
-       VALUES (:department, :name)
-       RETURNING ID INTO :id`,
-      {
-        department: data.department,
-        name:       data.name,
-        id:         { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
-      }
-    );
-    const headerId = (headerResult.outBinds as { id: number[] }).id[0];
-
-    // ── 品目を1行ずつ保存 ──────────────────────────
-    for (const item of data.items) {
-      // TODO: カラム名を変更
-      await conn.execute(
-        `INSERT INTO ${TABLE_STORAGE_ITEMS} (
-          HEADER_ID, ITEM_CODE, LOT_NO, EXPIRY_DATE
-        ) VALUES (
-          :headerId, :itemCode, :lotNo, :expiryDate
-        )`,
-        {
-          headerId:   headerId,
-          itemCode:   item.itemCode,
-          lotNo:      item.lotNo,
-          expiryDate: item.expiryDate,
-        }
-      );
-    }
-    await conn.commit();
-  } finally {
-    await conn.close();
-  }
-}
-
-// 品目コード・ロットNOで検索（処理状況確認用）
-export type StorageItemResult = {
-  itemCode:   string;
-  lotNo:      string;
-  expiryDate: string;
-};
-
-export async function findStorageItems(
-  itemCode: string,
-  lotNo:    string
-): Promise<StorageItemResult[]> {
-  const conn = await getConnection();
-  try {
-    // TODO: カラム名・テーブル名を変更
     const result = await conn.execute(
-      `SELECT ITEM_CODE, LOT_NO, EXPIRY_DATE
-       FROM ${TABLE_STORAGE_ITEMS}
-       WHERE ITEM_CODE = :itemCode
-         AND LOT_NO    = :lotNo`,
-      { itemCode, lotNo },
-      { outFormat: oracledb.OUT_FORMAT_OBJECT }
+      `SELECT
+         MC_INQUIRY_NO                              AS "id",
+         NAME                                       AS "name",
+         BUSYO                                      AS "department",
+         MAILADDRESS                                AS "email",
+         TITLE                                      AS "title",
+         URGENCY                                    AS "urgency",
+         URGENT_REASON                              AS "urgentReason",
+         URGENT_APPROVAL                            AS "urgentApproval",
+         HOWTO_OPEN_SCREEN                          AS "screenPath",
+         BACKGROUND                                 AS "background",
+         REQ_ACTON                                  AS "reqActon",
+         RESPONSE_DETAIL                            AS "responseDetail",
+         CLOSED_NAME                                AS "closedName",
+         TO_CHAR(CLOSED_DATE, 'YYYY/MM/DD')         AS "closedDate",
+         TO_CHAR(INQUIRY_DATE, 'YYYY/MM/DD HH24:MI') AS "createdAt",
+         CASE WHEN CLOSED_DATE IS NOT NULL THEN '完了' ELSE '未対応' END AS "status"
+       FROM MCTEST1.W_TBL_INQUIRY_RECORD
+       WHERE MC_INQUIRY_NO = :id`,
+      { id },
+      { outFormat: oracledb.OUT_FORMAT_OBJECT },
     );
-    const rows = result.rows as { ITEM_CODE: string; LOT_NO: string; EXPIRY_DATE: string }[];
-    return rows.map((row) => ({
-      itemCode:   row.ITEM_CODE,
-      lotNo:      row.LOT_NO,
-      expiryDate: row.EXPIRY_DATE,
-    }));
+    const rows = result.rows ?? [];
+    return rows.length > 0 ? rows[0] : null;
   } finally {
     await conn.close();
   }
 }
 
-// ================================================
-// 総合判定取消
-// ================================================
-
-const TABLE_JUDGMENT_CANCEL = "JUDGMENT_CANCEL"; // TODO: テーブル名を変更
-
-export type JudgmentCancelRecord = {
-  department: string;
-  name:       string;
-  mail:       string;
-  itemCode:   string;
-  lotNo:      string;
-  screenshot: string | null;
-};
-
-export async function saveJudgmentCancel(data: JudgmentCancelRecord): Promise<void> {
+// ── 対応完了にする（admin画面用） ───────────────────
+// STATUS カラムがないため、CLOSED_DATE と CLOSED_NAME で完了を記録する
+export async function closeInquiry(
+  id: number,
+  closedName: string, // 対応者名（admin画面で入力）
+): Promise<void> {
   const conn = await getConnection();
   try {
-    // TODO: カラム名を変更
     await conn.execute(
-      `INSERT INTO ${TABLE_JUDGMENT_CANCEL} (
-        DEPARTMENT, NAME, MAIL, ITEM_CODE, LOT_NO, SCREENSHOT
-      ) VALUES (
-        :department, :name, :mail, :itemCode, :lotNo, :screenshot
-      )`,
-      {
-        department: data.department,
-        name:       data.name,
-        mail:       data.mail,
-        itemCode:   data.itemCode,
-        lotNo:      data.lotNo,
-        screenshot: data.screenshot,
-      }
+      `UPDATE MCTEST1.W_TBL_INQUIRY_RECORD
+       SET CLOSED_DATE = SYSDATE,
+           CLOSED_NAME = :closedName
+       WHERE MC_INQUIRY_NO = :id`,
+      { closedName, id },
     );
     await conn.commit();
   } finally {
