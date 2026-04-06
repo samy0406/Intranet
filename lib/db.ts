@@ -16,23 +16,23 @@ async function getConnection(): Promise<oracledb.Connection> {
 }
 
 // ── 問い合わせを1件保存する ────────────────────────
-export async function saveInquiry(data: { name: string; busyo?: string; mailaddress?: string; title?: string; urgency?: string; urgentReason?: string; urgentApproval?: string; howtoOpenScreen?: string; background?: string; reqActon?: string }): Promise<void> {
+export async function saveInquiry(data: { inquiry_name: string; busyo?: string; mailaddress?: string; title?: string; urgency?: string; urgentReason?: string; urgentApproval?: string; howtoOpenScreen?: string; background?: string; reqAction?: string }): Promise<void> {
   const conn = await getConnection();
   try {
     // MC_INQUIRY_NO はシーケンスから自動採番
     // ★ シーケンス名が違う場合はここを修正してください
     await conn.execute(
       `INSERT INTO MCTEST1.W_TBL_INQUIRY_RECORD
-        (MC_INQUIRY_NO, NAME, BUSYO, MAILADDRESS, TITLE,
+        (MC_INQUIRY_NO, INQUIRY_NAME, BUSYO, MAILADDRESS, TITLE,
          URGENCY, URGENT_REASON, URGENT_APPROVAL,
-         HOWTO_OPEN_SCREEN, BACKGROUND, REQ_ACTON)
+         HOWTO_OPEN_SCREEN, BACKGROUND, REQ_ACTION)
        VALUES
-        (MCTEST1.SEQ_MC_INQUIRY_NO.NEXTVAL,
-         :name, :busyo, :mailaddress, :title,
+        (MCTEST1.MC_INQUIRY_NO.NEXTVAL,
+         :inquiry_name, :busyo, :mailaddress, :title,
          :urgency, :urgentReason, :urgentApproval,
-         :howtoOpenScreen, :background, :reqActon)`,
+         :howtoOpenScreen, :background, :reqAction)`,
       {
-        name: data.name,
+        inquiry_name: data.inquiry_name,
         busyo: data.busyo ?? null,
         mailaddress: data.mailaddress ?? null,
         title: data.title ?? null,
@@ -41,7 +41,7 @@ export async function saveInquiry(data: { name: string; busyo?: string; mailaddr
         urgentApproval: data.urgentApproval ?? null,
         howtoOpenScreen: data.howtoOpenScreen ?? null,
         background: data.background ?? null,
-        reqActon: data.reqActon ?? null,
+        reqAction: data.reqAction ?? null,
       },
     );
     await conn.commit();
@@ -58,7 +58,7 @@ export async function getAllInquiries() {
       `SELECT
          MC_INQUIRY_NO                              AS "id",
          TO_CHAR(INQUIRY_DATE, 'YYYY/MM/DD')        AS "date",
-         NAME                                       AS "name",
+         INQUIRY_NAME                                       AS "name",
          BUSYO                                      AS "department",
          TITLE                                      AS "title",
          URGENCY                                    AS "urgency",
@@ -83,7 +83,7 @@ export async function getInquiryById(id: number) {
     const result = await conn.execute(
       `SELECT
          MC_INQUIRY_NO                              AS "id",
-         NAME                                       AS "name",
+         INQUIRY_NAME                                       AS "name",
          BUSYO                                      AS "department",
          MAILADDRESS                                AS "email",
          TITLE                                      AS "title",
@@ -92,7 +92,7 @@ export async function getInquiryById(id: number) {
          URGENT_APPROVAL                            AS "urgentApproval",
          HOWTO_OPEN_SCREEN                          AS "screenPath",
          BACKGROUND                                 AS "background",
-         REQ_ACTON                                  AS "reqActon",
+         REQ_ACTION                                  AS "reqAction",
          RESPONSE_DETAIL                            AS "responseDetail",
          CLOSED_NAME                                AS "closedName",
          TO_CHAR(CLOSED_DATE, 'YYYY/MM/DD')         AS "closedDate",
@@ -115,15 +115,39 @@ export async function getInquiryById(id: number) {
 export async function closeInquiry(
   id: number,
   closedName: string, // 対応者名（admin画面で入力）
+  responseDetail: string,
 ): Promise<void> {
   const conn = await getConnection();
   try {
     await conn.execute(
       `UPDATE MCTEST1.W_TBL_INQUIRY_RECORD
        SET CLOSED_DATE = SYSDATE,
-           CLOSED_NAME = :closedName
+           CLOSED_NAME = :closedName,
+           RESPONSE_DETAIL  = :responseDetail
        WHERE MC_INQUIRY_NO = :id`,
-      { closedName, id },
+      { closedName, responseDetail, id },
+    );
+    await conn.commit();
+  } catch (err) {
+    console.error("Error occurred while closing inquiry:", err);
+    throw err;
+  } finally {
+    await conn.close();
+  }
+}
+
+// ── フィールドを個別に更新する（自動保存用） ────────
+// onBlur（フォーカスが外れた）タイミングで1項目だけ保存するための関数
+// column は 'CLOSED_NAME' か 'RESPONSE_DETAIL' に限定（セキュリティ対策）
+export async function updateInquiryField(id: number, column: "CLOSED_NAME" | "RESPONSE_DETAIL", value: string): Promise<void> {
+  const conn = await getConnection();
+  try {
+    // column は TypeScript側で安全な値に限定しているのでテンプレートリテラルOK
+    await conn.execute(
+      `UPDATE MCTEST1.W_TBL_INQUIRY_RECORD
+       SET ${column} = :value
+       WHERE MC_INQUIRY_NO = :id`,
+      { value, id },
     );
     await conn.commit();
   } finally {

@@ -1,17 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { writeFile, mkdir, readFile } from "fs/promises";
-import { existsSync } from "fs";
+import { writeFile, mkdir } from "fs/promises";
 import path from "path";
-// import { saveInquiry } from '@/lib/db'  // DB申請後に有効化
+import { saveInquiry } from "@/lib/db"; // ← コメントアウトを解除
 import { ApiResponse } from "@/types/inquiry";
 
 const ALLOWED_EXTENSIONS = [".pdf", ".doc", ".docx", ".xls", ".xlsx", ".png", ".jpg", ".jpeg"];
 const MAX_SIZE = 10 * 1024 * 1024; // 10MB
 const UPLOAD_DIR = path.join(process.cwd(), "uploads");
-// テキストデータの保存先（DB代わり）
-const TEXT_DATA_FILE = path.join(process.cwd(), "uploads", "inquiries.json");
 
-// ── ファイル保存ユーティリティ ────────────────────
+// ── ファイル保存ユーティリティ（DBテーブルにカラムがないためディスクのみ） ──
 async function saveFile(file: File, prefix: string): Promise<string | null> {
   if (!file || file.size === 0) return null;
   const ext = path.extname(file.name).toLowerCase();
@@ -23,64 +20,48 @@ async function saveFile(file: File, prefix: string): Promise<string | null> {
   return filename;
 }
 
-// ── テキストデータを inquiries.json に追記 ────────
-// DBが使えるまでの暫定保存先
-async function saveTextData(record: Record<string, unknown>): Promise<void> {
-  await mkdir(UPLOAD_DIR, { recursive: true });
-
-  // 既存データを読み込む（なければ空配列）
-  let existing: unknown[] = [];
-  if (existsSync(TEXT_DATA_FILE)) {
-    const raw = await readFile(TEXT_DATA_FILE, "utf-8");
-    existing = JSON.parse(raw);
-    // JSON.parse = JSON文字列 → JavaScriptオブジェクトに変換
-  }
-
-  // 新しいレコードを追加して書き出す
-  existing.push(record);
-  await writeFile(TEXT_DATA_FILE, JSON.stringify(existing, null, 2), "utf-8");
-  // JSON.stringify(data, null, 2) = オブジェクト → 見やすいJSON文字列に変換（2スペースインデント）
-}
-
 export async function POST(request: NextRequest): Promise<NextResponse<ApiResponse>> {
   try {
     const data = await request.formData();
 
+    // ── フォームから値を取り出す ──────────────────────
+    // data.get("キー名") でフォームの各フィールドを取得
     const name = data.get("name") as string;
     const department = data.get("department") as string;
     const title = data.get("title") as string;
     const urgency = data.get("urgency") as string;
     const screenPath = data.get("screenPath") as string;
-    const message = data.get("message") as string;
-    const resolution = data.get("resolution") as string;
+    const message = data.get("message") as string; // 経緯 → BACKGROUND
+    const resolution = data.get("resolution") as string; // 対応希望内容 → REQ_ACTON
+    const mail = data.get("mail") as string;
+    const reason = data.get("reason") as string; // 至急の理由 → URGENT_REASON
+    const approver = data.get("approver") as string; // 承認者 → URGENT_APPROVAL
     const file = data.get("file") as File | null;
     const screenshot = data.get("screenshot") as File | null;
 
-    if (!name || !title || !urgency || !message || !resolution || !screenshot || screenshot.size === 0) {
+    // ── バリデーション ─────────────────────────────────
+    if (!name || !title || !urgency || !message || !resolution) {
       return NextResponse.json({ status: "error", message: "必須項目を入力してください" }, { status: 400 });
     }
 
-    // ファイル・スクリーンショットを保存
-    const filename = file ? await saveFile(file, "file") : null;
-    const screenshotFilename = screenshot ? await saveFile(screenshot, "screenshot") : null;
+    // ── ファイル・スクリーンショットをディスクに保存 ──
+    // ※ DBテーブルにカラムがないためファイル名はDBに登録しない
+    await saveFile(file as File, "file");
+    await saveFile(screenshot as File, "screenshot");
 
-    // POSTデータから mail / reason / approver を取得
-    const mail = data.get("mail") as string;
-    const reason = data.get("reason") as string;
-    const approver = data.get("approver") as string;
-
-    // フォームのキー名 → DBカラム名に変換して渡す
+    // ── Oracle DB に保存 ──────────────────────────────
+    // フォームのキー名 → DBカラム名に対応させて渡す
     await saveInquiry({
-      name: body.name,
-      busyo: body.department,
-      mailaddress: body.mail,
-      title: body.title,
-      urgency: body.urgency,
-      urgentReason: body.reason, // フォームの "reason"
-      urgentApproval: body.approver, // フォームの "approver"
-      howtoOpenScreen: body.screenPath,
-      background: body.background,
-      reqActon: body.resolution, // フォームの "resolution"
+      inquiry_name: name,
+      busyo: department,
+      mailaddress: mail,
+      title: title,
+      urgency: urgency,
+      urgentReason: reason, // フォーム: reason     → DB: URGENT_REASON
+      urgentApproval: approver, // フォーム: approver   → DB: URGENT_APPROVAL
+      howtoOpenScreen: screenPath, // フォーム: screenPath → DB: HOWTO_OPEN_SCREEN
+      background: message, // フォーム: message    → DB: BACKGROUND
+      reqAction: resolution, // フォーム: resolution → DB: REQ_ACTION
     });
 
     return NextResponse.json({ status: "ok", message: "送信完了しました" });
