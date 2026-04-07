@@ -245,7 +245,7 @@ export default function InquiryDetailPage() {
             {/* 対応者 */}
             <div>
               <label className="block text-sm font-semibold text-slate-600 mb-1.5">対応者</label>
-              <input type="text" value={adminFields.closedName} onChange={(e) => setAdminFields((prev) => ({ ...prev, closedName: e.target.value }))} onBlur={(e) => handleSave("closedName", e.target.value)} placeholder="例：山田 太郎" disabled={isClosed} className={inputClass} />
+              <input type="text" value={adminFields.closedName} onChange={(e) => setAdminFields((prev) => ({ ...prev, closedName: e.target.value }))} onBlur={(e) => handleSave("closedName", e.target.value)} placeholder="例：山田太郎" disabled={isClosed} className={inputClass} />
             </div>
 
             {/* 完了日付（DBが自動セット → 読み取り専用で表示） */}

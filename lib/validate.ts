@@ -10,6 +10,9 @@ export function validateInquiryForm(form: InquiryFormData, screenshot: File | nu
   // ── 各項目のチェック ──────────────────────────
   if (!form.name.trim()) {
     errors.name = "お名前を入力してください";
+  } else if (form.name.includes(" ") || form.name.includes("　")) {
+    // 半角スペース・全角スペース両方チェック
+    errors.name = "スペースは使用できません";
   }
 
   if (!form.department.trim()) {
@@ -37,6 +40,9 @@ export function validateInquiryForm(form: InquiryFormData, screenshot: File | nu
     }
     if (!form.approver.trim()) {
       errors.approver = "承認者を入力してください";
+    } else if (form.approver.includes(" ") || form.approver.includes("　")) {
+      // 半角スペース・全角スペース両方チェック
+      errors.approver = "スペースは使用できません";
     }
   }
 

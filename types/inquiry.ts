@@ -20,9 +20,6 @@ export type InquiryFormData = {
   resolution: string; // 対応希望内容
   reason: string; // 緊急の理由
   approver: string; // 承認者
-  handler: string; // 対応者
-  completedAt: string; // 完了日付
-  responseNote: string; // 対応内容
 };
 
 //･エラーの型

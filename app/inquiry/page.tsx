@@ -42,7 +42,12 @@ export default function HomePage() {
 
   // ── テキスト入力の変更 ────────────────────────────
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+    const noSpaceFields = ["name", "approver"]; // スペース禁止のフィールド
+    const sanitized = noSpaceFields.includes(name)
+      ? value.replace(/[\s　]/g, "") // 半角・全角スペースを除去
+      : value;
+    setForm((prev) => ({ ...prev, [name]: sanitized }));
   };
 
   // ── ファイル選択 ──────────────────────────────────
@@ -174,7 +179,21 @@ export default function HomePage() {
           {/* ── 名前・部署 ── */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="お名前" required error={errors.name} id="field-name">
-              <input type="text" name="name" value={form.name} onChange={handleChange} placeholder="例：山田太郎" className={inputClass} />
+              <input
+                type="text"
+                name="name"
+                value={form.name}
+                onChange={handleChange}
+                onBlur={(e) => {
+                  // フォーカスが外れたときにもスペースを除去
+                  setForm((prev) => ({
+                    ...prev,
+                    name: e.target.value.replace(/[\s　]/g, ""),
+                  }));
+                }}
+                placeholder="例：山田太郎"
+                className={inputClass}
+              />
             </Field>
             <Field label="部署" required error={errors.department} id="field-department">
               <input type="text" name="department" value={form.department} onChange={handleChange} placeholder="例：包装課" className={inputClass} />
@@ -223,11 +242,22 @@ export default function HomePage() {
               <p className="text-red-600 text-xs font-semibold">至急の対応が必要な場合は、以下の内容もご記入ください。</p>
 
               <Field label="理由" required error={errors.reason} id="field-reason">
-                <textarea name="urgencyReason" value={form.reason} onChange={handleChange} rows={3} required className={`${inputClass} resize-none`} />
+                <textarea name="reason" value={form.reason} onChange={handleChange} rows={3} required className={`${inputClass} resize-none`} />
               </Field>
 
               <Field label="承認者" required error={errors.approver} id="field-approver">
-                <input type="text" name="approver" value={form.approver} onChange={handleChange} className={inputClass} />
+                <input
+                  type="text"
+                  name="approver"
+                  value={form.approver}
+                  onChange={handleChange}
+                  onBlur={(e) => {
+                    setForm((prev) => ({
+                      ...prev,
+                      approver: e.target.value.replace(/[\s　]/g, ""),
+                    }));
+                  }}
+                />
               </Field>
             </div>
           )}
