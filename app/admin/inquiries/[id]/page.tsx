@@ -230,6 +230,11 @@ export default function InquiryDetailPage() {
             <InfoRow label="対応希望内容">
               <p className="whitespace-pre-wrap leading-relaxed">{inquiry!.reqAction}</p>
             </InfoRow>
+            <InfoRow label="添付ファイル">
+              <a href={`https://app.box.com/folder/${process.env.NEXT_PUBLIC_BOX_FOLDER_ID}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-indigo-600 hover:underline">
+                📁 Boxフォルダを開く
+              </a>
+            </InfoRow>
           </dl>
         </div>
 

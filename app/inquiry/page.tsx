@@ -33,8 +33,8 @@ export default function HomePage() {
     approver: "",
   });
   const [file, setFile] = useState<File | null>(null);
-  const [screenshot, setScreenshot] = useState<File | null>(null); // Ctrl+V 貼り付け画像
-  const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null); // プレビュー用URL
+  const [screenshots, setScreenshots] = useState<File[]>([]);
+  const [screenshotUrls, setScreenshotUrls] = useState<string[]>([]);
   const [status, setStatus] = useState<Status>("idle");
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [errors, setErrors] = useState<InquiryFormErrors>({});
@@ -75,28 +75,21 @@ export default function HomePage() {
   // ClipboardEvent = クリップボード操作（コピー/貼り付け）のイベント型
   const handlePaste = (e: ClipboardEvent<HTMLDivElement>) => {
     const items = Array.from(e.clipboardData.items);
-    // クリップボードの中から画像だけを探す
     const imageItem = items.find((item) => item.type.startsWith("image/"));
     if (!imageItem) return;
-
-    const blob = imageItem.getAsFile(); // クリップボードの画像をFileオブジェクトに変換
+    const blob = imageItem.getAsFile();
     if (!blob) return;
-
-    // 貼り付けた画像に timestamp でファイル名を付ける
     const pastedFile = new File([blob], `screenshot_${Date.now()}.png`, { type: blob.type });
-    setScreenshot(pastedFile);
-
-    // プレビュー表示用のURL生成（ブラウザのメモリ上に一時的に作る）
-    // URL.createObjectURL = ファイルをブラウザ内だけで使えるURLに変換する
-    if (screenshotUrl) URL.revokeObjectURL(screenshotUrl); // 古いURLを解放してメモリ節約
-    setScreenshotUrl(URL.createObjectURL(pastedFile));
+    // 配列に追加（上書きではなく）
+    setScreenshots((prev) => [...prev, pastedFile]);
+    setScreenshotUrls((prev) => [...prev, URL.createObjectURL(pastedFile)]);
   };
 
   // ── スクリーンショットを削除 ──────────────────────
-  const clearScreenshot = () => {
-    if (screenshotUrl) URL.revokeObjectURL(screenshotUrl);
-    setScreenshot(null);
-    setScreenshotUrl(null);
+  const clearScreenshot = (index: number) => {
+    URL.revokeObjectURL(screenshotUrls[index]);
+    setScreenshots((prev) => prev.filter((_, i) => i !== index));
+    setScreenshotUrls((prev) => prev.filter((_, i) => i !== index));
   };
 
   // ── フォーム送信 ──────────────────────────────────
@@ -104,7 +97,7 @@ export default function HomePage() {
     e.preventDefault();
 
     // バリデーションを一括実行（スクリーンショットも含む）
-    const newErrors = validateInquiryForm(form, screenshot);
+    const newErrors = validateInquiryForm(form, screenshots[0] ?? null);
     setErrors(newErrors);
 
     // エラーがあれば止める
@@ -133,7 +126,7 @@ export default function HomePage() {
     Object.entries(form).forEach(([key, val]) => data.append(key, val));
     // Object.entries = オブジェクトを [key, value] のペア配列に変換してループ
     if (file) data.append("file", file);
-    if (screenshot) data.append("screenshot", screenshot);
+    screenshots.forEach((s) => data.append("screenshots", s));
 
     try {
       const res = await fetch("/api/submit", { method: "POST", body: data });
@@ -160,7 +153,7 @@ export default function HomePage() {
           <BackToHomeButton
             hasInput={
               // いずれかの項目に入力があれば true
-              Object.values(form).some((v) => v !== "") || screenshot !== null || file !== null
+              Object.values(form).some((v) => v !== "") || screenshots.length > 0 || file !== null
             }
           />
         </div>
@@ -178,7 +171,7 @@ export default function HomePage() {
         <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 sm:p-8 space-y-8">
           {/* ── 名前・部署 ── */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="お名前" required error={errors.name} id="field-name">
+            <Field label="名前" required error={errors.name} id="field-name">
               <input
                 type="text"
                 name="name"
@@ -272,7 +265,7 @@ export default function HomePage() {
             <textarea name="message" value={form.message} onChange={handleChange} rows={6} placeholder="例：○○の作業をしていたところ、○○の処理をしてうまくいかなかった。" className={`${inputClass} resize-none`} />
           </Field>
 
-          <ScreenshotInput screenshotUrl={screenshotUrl} error={errors.screenshot} onPaste={handlePaste} onClear={clearScreenshot} />
+          <ScreenshotInput screenshotUrls={screenshotUrls} error={errors.screenshot} onPaste={handlePaste} onClear={clearScreenshot} />
 
           {/* ── 対応希望内容 ── */}
           <Field label="対応希望内容（最終的にどうなれば解決か）" required hint="データ修正の場合、どの項目をどう修正すればいいかなるべく詳細に" error={errors.resolution} id="field-resolution">

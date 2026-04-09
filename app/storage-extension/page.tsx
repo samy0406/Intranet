@@ -25,6 +25,12 @@ type BaseErrors = {
   mail?: string;
 };
 
+type SearchResult = {
+  itemName: string; // 品名
+  expiryDate: string; // 現在の保管期限
+  makerExpiry: string; // 現在のメーカ期限
+};
+
 // 品目行のエラー型（行番号をキーにしたオブジェクト）
 // 例: { 0: { itemCode: 'エラー' }, 2: { lotNo: 'エラー' } }
 type ItemErrors = Record<number, Partial<Record<keyof Omit<ItemRow, "id">, string>>>;
@@ -69,7 +75,38 @@ export default function StorageExtensionPage() {
   const [baseErrors, setBaseErrors] = useState<BaseErrors>({});
   const [itemErrors, setItemErrors] = useState<ItemErrors>({});
   const [status, setStatus] = useState<Status>("idle");
+  const [searchResults, setSearchResults] = useState<Record<number, SearchResult>>({});
+  const [searching, setSearching] = useState<Record<number, boolean>>({});
   const router = useRouter();
+
+  // ── 検索ハンドラ（追加） ──────────────────────────────
+  const handleSearch = async (index: number) => {
+    const item = items[index];
+    if (!item.itemCode.trim() || !item.lotNo.trim()) return;
+
+    setSearching((prev) => ({ ...prev, [index]: true }));
+    try {
+      const res = await fetch(`/api/storage-extension/status?itemCode=${encodeURIComponent(item.itemCode)}&lotNo=${encodeURIComponent(item.lotNo)}`);
+      const json = await res.json();
+
+      // ✅ items配列の先頭を取り出す
+      if (json.items && json.items.length > 0) {
+        setSearchResults((prev) => ({ ...prev, [index]: json.items[0] }));
+      } else {
+        setItemErrors((prev) => ({
+          ...prev,
+          [index]: { ...prev[index], itemCode: json.message ?? "該当データが見つかりません" },
+        }));
+      }
+    } catch {
+      setItemErrors((prev) => ({
+        ...prev,
+        [index]: { ...prev[index], itemCode: "通信エラーが発生しました" },
+      }));
+    } finally {
+      setSearching((prev) => ({ ...prev, [index]: false }));
+    }
+  };
 
   // 入力があるかどうか（戻るボタンの確認ポップアップ用）
   const hasInput = Object.values(base).some((v) => v !== "") || items.some((item) => item.itemCode || item.lotNo || item.expiryDate);
@@ -230,7 +267,7 @@ export default function StorageExtensionPage() {
                       )}
                     </div>
 
-                    {/* 3カラム入力 */}
+                    {/* 3カラム入力 → 品目コード・ロットNO・検索ボタンを1行に */}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <div>
                         <label className={labelClass}>品目コード</label>
@@ -242,11 +279,41 @@ export default function StorageExtensionPage() {
                         <input type="text" value={item.lotNo} onChange={(e) => handleItemChange(index, "lotNo", e.target.value)} className={`${inputClass} font-mono`} />
                         {itemErrors[index]?.lotNo && <p className={errClass}>{itemErrors[index].lotNo}</p>}
                       </div>
-                      <div>
-                        <label className={labelClass}>新保管期限</label>
-                        <input type="date" value={item.expiryDate} onChange={(e) => handleItemChange(index, "expiryDate", e.target.value)} className={inputClass} />
-                        {itemErrors[index]?.expiryDate && <p className={errClass}>{itemErrors[index].expiryDate}</p>}
+                      {/* 検索ボタン（品目コードとロットNOが両方入力済みのときだけ有効） */}
+                      <div className="flex items-end">
+                        <button
+                          type="button"
+                          onClick={() => handleSearch(index)}
+                          disabled={!item.itemCode.trim() || !item.lotNo.trim() || searching[index]}
+                          className="w-full py-2.5 rounded-xl bg-slate-600 hover:bg-slate-500
+                            text-white text-sm font-semibold transition-all active:scale-95
+                            disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          {searching[index] ? "検索中…" : "🔍 現在値を検索"}
+                        </button>
                       </div>
+                    </div>
+
+                    {/* 検索結果の表示（検索成功後に出現） */}
+                    {searchResults[index] && (
+                      <div className="mt-3 p-3 rounded-lg bg-slate-700 border border-slate-600 text-xs space-y-1">
+                        <p className="text-emerald-400 font-semibold">{searchResults[index].itemName}</p>
+                        <p className="text-slate-300">
+                          現在の保管期限：
+                          <span className="text-white font-mono ml-1">{searchResults[index].expiryDate}</span>
+                        </p>
+                        <p className="text-slate-300">
+                          メーカ期限：
+                          <span className="text-white font-mono ml-1">{searchResults[index].makerExpiry ?? "—"}</span>
+                        </p>
+                      </div>
+                    )}
+
+                    {/* 新保管期限は検索結果の下に配置 */}
+                    <div className="mt-3">
+                      <label className={labelClass}>新保管期限</label>
+                      <input type="date" value={item.expiryDate} onChange={(e) => handleItemChange(index, "expiryDate", e.target.value)} className={inputClass} />
+                      {itemErrors[index]?.expiryDate && <p className={errClass}>{itemErrors[index].expiryDate}</p>}
                     </div>
                   </div>
                 ))}

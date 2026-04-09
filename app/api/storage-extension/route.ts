@@ -1,9 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { writeFile, mkdir, readFile } from "fs/promises";
-import { existsSync } from "fs";
-import path from "path";
-
-const DATA_FILE = path.join(process.cwd(), "uploads", "storage_extension.json");
+import { updateHokanKigen } from "@/lib/db";
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,20 +11,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ status: "error", message: "必須項目を入力してください" }, { status: 400 });
     }
 
-    await mkdir(path.join(process.cwd(), "uploads"), { recursive: true });
-    let existing: unknown[] = [];
-    if (existsSync(DATA_FILE)) {
-      existing = JSON.parse(await readFile(DATA_FILE, "utf-8"));
+    // items を順番に処理（1件でも失敗すると throw してロールバック）
+    for (const item of items as { itemCode: string; lotNo: string; expiryDate: string }[]) {
+      await updateHokanKigen(item.itemCode, item.lotNo, item.expiryDate);
     }
-    existing.push({
-      id: Date.now(),
-      department,
-      name,
-      mail,
-      items,
-      createdAt: new Date().toLocaleString("ja-JP"),
-    });
-    await writeFile(DATA_FILE, JSON.stringify(existing, null, 2), "utf-8");
 
     return NextResponse.json({ status: "ok", message: "申請を受け付けました" });
   } catch {
