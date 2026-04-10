@@ -32,7 +32,7 @@ export default function HomePage() {
     reason: "",
     approver: "",
   });
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [screenshots, setScreenshots] = useState<File[]>([]);
   const [screenshotUrls, setScreenshotUrls] = useState<string[]>([]);
   const [status, setStatus] = useState<Status>("idle");
@@ -52,7 +52,8 @@ export default function HomePage() {
 
   // ── ファイル選択 ──────────────────────────────────
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setFile(e.target.files?.[0] ?? null);
+    const selected = Array.from(e.target.files ?? []);
+    setFiles((prev) => [...prev, ...selected]); // 既存に追加
   };
 
   // ── ドラッグ&ドロップ ─────────────────────────────
@@ -67,8 +68,8 @@ export default function HomePage() {
   const handleDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragging(false);
-    const dropped = e.dataTransfer.files[0];
-    if (dropped) setFile(dropped);
+    const dropped = Array.from(e.dataTransfer.files);
+    if (dropped.length > 0) setFiles((prev) => [...prev, ...dropped]);
   };
 
   // ── Ctrl+V でスクリーンショット貼り付け ─────────
@@ -125,7 +126,7 @@ export default function HomePage() {
     const data = new FormData();
     Object.entries(form).forEach(([key, val]) => data.append(key, val));
     // Object.entries = オブジェクトを [key, value] のペア配列に変換してループ
-    if (file) data.append("file", file);
+    files.forEach((f) => data.append("files", f));
     screenshots.forEach((s) => data.append("screenshots", s));
 
     try {
@@ -153,7 +154,7 @@ export default function HomePage() {
           <BackToHomeButton
             hasInput={
               // いずれかの項目に入力があれば true
-              Object.values(form).some((v) => v !== "") || screenshots.length > 0 || file !== null
+              Object.values(form).some((v) => v !== "") || screenshots.length > 0 || files.length > 0
             }
           />
         </div>
@@ -272,7 +273,7 @@ export default function HomePage() {
             <textarea name="resolution" value={form.resolution} onChange={handleChange} rows={6} placeholder="例：〇〇画面の△△項目を「×××」から「○○○」に修正していただきたい。" className={`${inputClass} resize-none`} />
           </Field>
 
-          <FileUpload file={file} isDragging={isDragging} onFileChange={handleFileChange} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop} onClear={() => setFile(null)} formatSize={formatSize} />
+          <FileUpload files={files} isDragging={isDragging} onFileChange={handleFileChange} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop} onClear={(index) => setFiles((prev) => prev.filter((_, i) => i !== index))} formatSize={formatSize} />
 
           {/* ── 送信ボタン ── */}
           <button

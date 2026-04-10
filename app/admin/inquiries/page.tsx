@@ -17,7 +17,12 @@ type Inquiry = {
   title: string;
   urgency: string;
   status: InquiryStatus;
+  inquiryCategory: string; // INQUIRY_CATEGORY
 };
+
+// ── カテゴリ選択肢（[id]/page.tsx と同じ配列を維持する） ──
+// ★ 追加・変更はここと [id]/page.tsx の両方を編集してください
+const INQUIRY_CATEGORIES = ["データ修正", "操作方法・使い方", "システム障害・エラー", "帳票・出力", "マスタ設定", "権限・アクセス", "外部連携", "仕様確認", "その他"];
 
 // ── スタイル定数 ────────────────────────────────────────
 const STATUS_STYLE: Record<InquiryStatus, string> = {
@@ -44,6 +49,7 @@ export default function InquiriesPage() {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [filterUrgency, setFilterUrgency] = useState<string>("");
   const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
+  const [filterCategory, setFilterCategory] = useState<string>("");
   const [filterDateFrom, setFilterDateFrom] = useState<string>("");
   const [filterDateTo, setFilterDateTo] = useState<string>("");
   const [openStatusId, setOpenStatusId] = useState<number | null>(null);
@@ -74,12 +80,36 @@ export default function InquiriesPage() {
     return () => document.removeEventListener("click", close);
   }, [openStatusId]);
 
+  // ── ステータス変更：UIを即時更新 ＋ DBにも保存 ─────
+  // ① 楽観的UI更新（クリックした瞬間に画面を変える）
+  // ② fetch で PATCH → DB更新
+  // ③ 失敗したら元の状態に戻す（ロールバック）
+  const handleStatusChange = async (itemId: number, newStatus: InquiryStatus) => {
+    const prevInquiries = inquiries; // ロールバック用に保存
+    setInquiries((prev) => (prev ?? []).map((i) => (i.id === itemId ? { ...i, status: newStatus } : i)));
+    setOpenStatusId(null);
+
+    try {
+      const res = await fetch(`/api/admin/inquiries/${itemId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ field: "status", value: newStatus }),
+      });
+      if (!res.ok) throw new Error("保存失敗");
+    } catch {
+      // 失敗したら元に戻す
+      setInquiries(prevInquiries);
+      alert("ステータスの更新に失敗しました。再度お試しください。");
+    }
+  };
+
   const URGENCY_ORDER: Record<string, number> = { 至急: 0, 高: 1, 中: 2, 低: 3 };
   const STATUS_ORDER: Record<string, number> = { 未対応: 0, 対応中: 1, intec対応: 2, 完了: 3 };
 
   const displayedInquiries = (inquiries ?? [])
     .filter((item) => (filterUrgency ? item.urgency === filterUrgency : true))
     .filter((item) => filterStatuses.length === 0 || filterStatuses.includes(item.status ?? "未対応"))
+    .filter((item) => (filterCategory ? item.inquiryCategory === filterCategory : true))
     .filter((item) => {
       const itemDate = item.date.replace(/\//g, "-");
       if (filterDateFrom && itemDate < filterDateFrom) return false;
@@ -108,6 +138,8 @@ export default function InquiriesPage() {
     if (sortKey !== k) return <span className="text-slate-300 ml-1">↕</span>;
     return <span className="text-indigo-500 ml-1">{sortOrder === "asc" ? "↑" : "↓"}</span>;
   };
+
+  const hasFilter = filterUrgency || filterStatuses.length > 0 || filterCategory || filterDateFrom || filterDateTo;
 
   // ── ローディング ────────────────────────────────────
   if (inquiries === null && !error) {
@@ -145,6 +177,7 @@ export default function InquiriesPage() {
 
         {/* フィルター */}
         <div className="flex flex-wrap gap-3 mb-4">
+          {/* 緊急度 */}
           <select
             value={filterUrgency}
             onChange={(e) => setFilterUrgency(e.target.value)}
@@ -158,6 +191,22 @@ export default function InquiriesPage() {
             <option value="低">低</option>
           </select>
 
+          {/* カテゴリ */}
+          <select
+            value={filterCategory}
+            onChange={(e) => setFilterCategory(e.target.value)}
+            className="text-sm border border-slate-200 rounded-lg px-3 py-1.5 bg-white text-slate-600
+              focus:outline-none focus:ring-2 focus:ring-indigo-300"
+          >
+            <option value="">カテゴリ：すべて</option>
+            {INQUIRY_CATEGORIES.map((cat) => (
+              <option key={cat} value={cat}>
+                {cat}
+              </option>
+            ))}
+          </select>
+
+          {/* ステータス */}
           <div className="flex items-center gap-1.5 flex-wrap">
             <span className="text-xs text-slate-500 whitespace-nowrap">ステータス：</span>
             {(["未対応", "対応中", "intec対応", "完了"] as InquiryStatus[]).map((s) => {
@@ -175,6 +224,7 @@ export default function InquiriesPage() {
             })}
           </div>
 
+          {/* 日付 */}
           <div className="flex items-center gap-2 text-sm text-slate-600">
             <label className="whitespace-nowrap text-slate-500 text-xs">日付：</label>
             <input
@@ -194,11 +244,13 @@ export default function InquiriesPage() {
             />
           </div>
 
-          {(filterUrgency || filterStatuses.length > 0 || filterDateFrom || filterDateTo) && (
+          {/* リセット */}
+          {hasFilter && (
             <button
               onClick={() => {
                 setFilterUrgency("");
                 setFilterStatuses([]);
+                setFilterCategory("");
                 setFilterDateFrom("");
                 setFilterDateTo("");
               }}
@@ -233,7 +285,7 @@ export default function InquiriesPage() {
                   <th onClick={() => handleSort("status")} className="px-4 py-3 text-left font-semibold text-slate-600 whitespace-nowrap cursor-pointer hover:text-indigo-600">
                     ステータス <SortIcon k="status" />
                   </th>
-                  <th className="px-4 py-3 text-left font-semibold text-slate-600 whitespace-nowrap">メールアドレス</th>
+                  <th className="px-4 py-3 text-left font-semibold text-slate-600 whitespace-nowrap">カテゴリ</th>
                 </tr>
               </thead>
 
@@ -242,7 +294,7 @@ export default function InquiriesPage() {
                   <tr key={item.id} onClick={() => router.push(`/admin/inquiries/${item.id}`)} className="hover:bg-slate-50 cursor-pointer transition-colors">
                     <td className="px-4 py-3 text-slate-500 whitespace-nowrap text-xs font-mono">{item.id}</td>
                     <td className="px-4 py-3 text-slate-500 whitespace-nowrap text-xs">{item.date}</td>
-                    <td className="px-4 py-3 text-slate-700 max-w-[180px] truncate font-medium">{item.title}</td>
+                    <td className="px-4 py-3 text-slate-700 max-w-[320px] truncate font-medium">{item.title}</td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       <span className="text-slate-700 text-xs">{item.name}</span>
                       {item.department && <span className="ml-1 text-xs text-slate-400">{item.department}</span>}
@@ -276,8 +328,7 @@ export default function InquiriesPage() {
                               key={s}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setInquiries((prev) => (prev ?? []).map((i) => (i.id === item.id ? { ...i, status: s } : i)));
-                                setOpenStatusId(null); // 選択したら閉じる
+                                handleStatusChange(item.id, s); // ★ DBへの保存も行う
                               }}
                               className={`w-full text-left px-3 py-2 text-xs font-bold
                                 hover:bg-slate-50 transition-colors
@@ -290,13 +341,17 @@ export default function InquiriesPage() {
                       )}
                     </td>
 
+                    {/* カテゴリ */}
                     <td className="px-4 py-3">
-                      {item.email ? (
-                        <a href={`mailto:${item.email}?subject=【お問い合わせ】${encodeURIComponent(item.title)}`} onClick={(e) => e.stopPropagation()} className="text-indigo-600 hover:underline hover:text-indigo-800 transition-colors text-xs">
-                          {item.email}
-                        </a>
+                      {item.inquiryCategory ? (
+                        <span
+                          className="inline-block px-2 py-0.5 rounded-md text-xs font-medium
+                          bg-slate-100 text-slate-600 whitespace-nowrap"
+                        >
+                          {item.inquiryCategory}
+                        </span>
                       ) : (
-                        <span className="text-slate-300">—</span>
+                        <span className="text-slate-300 text-xs">—</span>
                       )}
                     </td>
                   </tr>

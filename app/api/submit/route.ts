@@ -10,20 +10,12 @@ async function sendFilesToBox(
   parentFolderId: string, // 親フォルダID（.env.localのBOX_FOLDER_ID）
   token: string,
   inquiryId: string, // 申請ID（フォルダ名に使う）
+  title: string,
 ) {
   if (files.length === 0) return;
 
   // ── Step1: 新しいフォルダを作成 ──────────────────
-  // フォルダ名：ID_日付（例：1744123456789_20260408）
-  const today = new Date()
-    .toLocaleDateString("ja-JP", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    })
-    .replace(/\//g, ""); // "2026/04/08" → "20260408"
-
-  const folderName = `${inquiryId}_${today}`;
+  const folderName = `${inquiryId}_${title}`; // フォルダ名に申請IDとタイトルを入れる（例: "123_プリンタが動かない"）
 
   // Box API でフォルダ作成
   const folderRes = await fetch("https://api.box.com/2.0/folders", {
@@ -58,7 +50,7 @@ async function sendFilesToBox(
         parent: { id: newFolderId }, // 新しく作ったフォルダに入れる
       }),
     );
-    form.append("file", new Blob([f.buffer], { type: f.mimetype }), f.filename);
+    form.append("file", new File([new Uint8Array(f.buffer)], f.filename, { type: f.mimetype }));
 
     const res = await fetch("https://upload.box.com/api/2.0/files/content", {
       method: "POST",
@@ -93,8 +85,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
     const mail = data.get("mail") as string;
     const reason = data.get("reason") as string; // 至急の理由 → URGENT_REASON
     const approver = data.get("approver") as string; // 承認者 → URGENT_APPROVAL
-    const file = data.get("file") as File | null;
-    const screenshot = data.get("screenshot") as File | null;
+    const files = data.getAll("files") as File[]; // 単一ファイルも複数ファイルも両方対応
+    const screenshots = data.getAll("screenshots") as File[];
 
     // ── バリデーション ─────────────────────────────────
     if (!name || !title || !urgency || !message || !resolution) {
@@ -103,50 +95,59 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
 
     // ── ファイルのバリデーション ──
     const ALLOWED_EXTENSIONS = [".pdf", ".doc", ".docx", ".xls", ".xlsx", ".png", ".jpg", ".jpeg"];
-    const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+    const MAX_SIZE = 100 * 1024 * 1024; // 100MB
 
-    if (file && file.size > 0) {
-      const ext = path.extname(file.name).toLowerCase();
+    for (const f of files) {
+      const ext = path.extname(f.name).toLowerCase();
       if (!ALLOWED_EXTENSIONS.includes(ext)) {
         return NextResponse.json({ status: "error", message: `許可されていないファイル形式です: ${ext}` }, { status: 400 });
       }
-      if (file.size > MAX_SIZE) {
-        return NextResponse.json({ status: "error", message: "ファイルサイズは10MB以下にしてください" }, { status: 400 });
+      if (f.size > MAX_SIZE) {
+        return NextResponse.json({ status: "error", message: "ファイルサイズは100MB以下にしてください" }, { status: 400 });
       }
     }
 
-    // ── 先にBufferとして読み込む（arrayBufferは1回しか読めないため） ──
-    const fileBuffer = file && file.size > 0 ? Buffer.from(await file.arrayBuffer()) : null;
-    const screenshotBuffer = screenshot && screenshot.size > 0 ? Buffer.from(await screenshot.arrayBuffer()) : null;
+    const fileBuffers = await Promise.all(
+      files
+        .filter((f) => f.size > 0)
+        .map(async (f) => ({
+          buffer: Buffer.from(await f.arrayBuffer()),
+          filename: f.name,
+          mimetype: f.type || "application/octet-stream",
+        })),
+    );
 
-    // ── ディスクに保存 ──
-    if (fileBuffer && file) {
-      const ext = path.extname(file.name).toLowerCase();
+    const screenshotBuffers = await Promise.all(
+      screenshots
+        .filter((s) => s.size > 0)
+        .map(async (s) => ({
+          buffer: Buffer.from(await s.arrayBuffer()),
+          mimetype: s.type || "image/png",
+        })),
+    );
+
+    for (const s of screenshotBuffers) {
       await mkdir(UPLOAD_DIR, { recursive: true });
-      await writeFile(path.join(UPLOAD_DIR, `file_${Date.now()}${ext}`), fileBuffer);
-    }
-    if (screenshotBuffer) {
-      await mkdir(UPLOAD_DIR, { recursive: true });
-      await writeFile(path.join(UPLOAD_DIR, `screenshot_${Date.now()}.png`), screenshotBuffer);
+      await writeFile(path.join(UPLOAD_DIR, `screenshot_${Date.now()}.png`), s.buffer);
     }
 
     // ── Box送信用の配列を組み立て ──
     const filesToSend: { buffer: Buffer; filename: string; mimetype: string }[] = [];
 
-    if (fileBuffer && file) {
+    fileBuffers.forEach((f) => {
       filesToSend.push({
-        buffer: fileBuffer,
-        filename: `${Date.now()}_${file.name}`,
-        mimetype: file.type || "application/octet-stream",
+        buffer: f.buffer,
+        filename: `${Date.now()}_${f.filename}`,
+        mimetype: f.mimetype,
       });
-    }
-    if (screenshotBuffer && screenshot) {
+    });
+    screenshotBuffers.forEach((s, i) => {
       filesToSend.push({
-        buffer: screenshotBuffer,
-        filename: `${Date.now()}_screenshot.png`,
-        mimetype: screenshot.type || "image/png",
+        buffer: s.buffer,
+        filename: `${Date.now()}_screenshot_${i + 1}.png`,
+        mimetype: s.mimetype,
       });
-    }
+    });
 
     // ── Oracle DB に保存 ──────────────────────────────
     // フォームのキー名 → DBカラム名に対応させて渡す
@@ -169,7 +170,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
       const folderId = process.env.BOX_FOLDER_ID!;
       const inquiryId = savedId.toString(); // ← DBのIDを使う
 
-      sendFilesToBox(filesToSend, folderId, token, inquiryId).catch((err) => {
+      sendFilesToBox(filesToSend, folderId, token, inquiryId, title).catch((err) => {
         console.error("[Box送信エラー]", err);
       });
     }

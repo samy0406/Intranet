@@ -5,12 +5,10 @@ export async function POST(request: NextRequest) {
   try {
     // await = データが届くまで待つ
     const data = await request.formData();
-    const department = data.get("department") as string;
-    const name = data.get("name") as string;
     const mail = data.get("mail") as string;
     const accountCode = data.get("accountCode") as string;
 
-    if (!department || !name || !mail || !accountCode) {
+    if (!mail || !accountCode) {
       return NextResponse.json({ status: "error", message: "必須項目を入力してください" }, { status: 400 });
     }
 

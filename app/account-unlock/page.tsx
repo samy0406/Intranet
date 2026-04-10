@@ -5,8 +5,6 @@ import { useRouter } from "next/navigation";
 import { BackToHomeButton } from "@/components/BackToHomeButton";
 
 type FormData = {
-  department: string;
-  name: string;
   mail: string;
   accountCode: string;
 };
@@ -14,16 +12,12 @@ type FormData = {
 type Status = "idle" | "loading" | "done";
 
 type Errors = {
-  department?: string;
-  name?: string;
   mail?: string;
   accountCode?: string;
 };
 
 function validate(form: FormData): Errors {
   const errors: Errors = {};
-  if (!form.department.trim()) errors.department = "部署を入力してください";
-  if (!form.name.trim()) errors.name = "名前を入力してください";
   if (!form.mail.trim()) {
     errors.mail = "メールアドレスを入力してください";
   } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.mail)) {
@@ -34,7 +28,7 @@ function validate(form: FormData): Errors {
 }
 
 export default function AccountUnlockPage() {
-  const [form, setForm] = useState<FormData>({ department: "", name: "", mail: "", accountCode: "" });
+  const [form, setForm] = useState<FormData>({ mail: "", accountCode: "" });
   const [errors, setErrors] = useState<Errors>({});
   const [status, setStatus] = useState<Status>("idle");
   const router = useRouter();
@@ -50,7 +44,7 @@ export default function AccountUnlockPage() {
     const newErrors = validate(form);
     setErrors(newErrors);
     if (Object.keys(newErrors).length > 0) {
-      const fieldOrder = ["department", "name", "mail", "accountCode"] as const;
+      const fieldOrder = ["mail", "accountCode"] as const;
       const first = fieldOrder.find((k) => newErrors[k]);
       if (first) {
         setTimeout(() => {
@@ -125,24 +119,6 @@ export default function AccountUnlockPage() {
 
           {/* フォーム */}
           <form onSubmit={handleSubmit} className="space-y-5">
-            {/* 部署 */}
-            <div id="field-department" tabIndex={-1} className="scroll-mt-6">
-              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5">
-                部署 <span className="text-rose-400">*</span>
-              </label>
-              <input type="text" name="department" value={form.department} onChange={handleChange} placeholder="例：包装課" className={inputClass} />
-              {errors.department && <p className="text-rose-400 text-xs mt-1">⚠ {errors.department}</p>}
-            </div>
-
-            {/* 名前 */}
-            <div id="field-name" tabIndex={-1} className="scroll-mt-6">
-              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5">
-                名前 <span className="text-rose-400">*</span>
-              </label>
-              <input type="text" name="name" value={form.name} onChange={handleChange} placeholder="例：山田太郎" className={inputClass} />
-              {errors.name && <p className="text-rose-400 text-xs mt-1">⚠ {errors.name}</p>}
-            </div>
-
             {/* メールアドレス */}
             <div id="field-mail" tabIndex={-1} className="scroll-mt-6">
               <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5">

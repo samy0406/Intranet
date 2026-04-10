@@ -110,7 +110,7 @@ export default function AccountUnlockStatusPage() {
                 <span className="text-2xl mt-0.5">{result === "pending" ? "⏳" : "✅"}</span>
                 <div>
                   <p className={`font-bold text-sm mb-1 ${result === "pending" ? "text-amber-400" : "text-emerald-400"}`}>{result === "pending" ? "処理中" : "ログイン可能"}</p>
-                  <p className="text-slate-300 text-sm leading-relaxed">{result === "pending" ? "まだ処理は終わっていません。情報システム部に直接ご連絡下さい。" : "現在ログイン可能な状態です。"}</p>
+                  <p className="text-slate-300 text-sm leading-relaxed">{result === "pending" ? "現在ログインできない状態です。" : "現在ログイン可能な状態です。"}</p>
                 </div>
               </div>
             </div>

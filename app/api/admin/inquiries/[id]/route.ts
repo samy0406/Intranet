@@ -21,10 +21,10 @@ export async function GET(_request: NextRequest, context: { params: Promise<{ id
 // ── PATCH: フィールド更新 or 完了処理 ────────────────────
 // 2パターンのリクエストを受け付ける：
 //
-// パターンA（自動保存）: { field: "closedName" | "responseDetail", value: "..." }
+// パターンA（自動保存）: { field: "personInCharge" | "responseDetail", value: "..." }
 //   → onBlur時に1フィールドだけ保存
 //
-// パターンB（完了処理）: { action: "close", closedName: "...", responseDetail: "..." }
+// パターンB（完了処理）: { action: "close", personInCharge: "...", responseDetail: "..." }
 //   → CLOSED_DATE=SYSDATE をセットして完了にする
 export async function PATCH(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
@@ -33,17 +33,19 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
 
     // ── パターンB: 完了処理 ──────────────────────────────
     if (body.action === "close") {
-      if (!body.closedName) {
-        return NextResponse.json({ error: "対応者名（closedName）は必須です" }, { status: 400 });
+      if (!body.personInCharge) {
+        return NextResponse.json({ error: "対応者名（personInCharge）は必須です" }, { status: 400 });
       }
-      await closeInquiry(Number(id), body.closedName, body.responseDetail ?? "");
+      await closeInquiry(Number(id), body.personInCharge, body.responseDetail ?? "", body.inquiryCategory ?? "");
       return NextResponse.json({ status: "ok" });
     }
 
     // ── パターンA: 個別フィールド自動保存 ───────────────
     const FIELD_MAP = {
-      closedName: "CLOSED_NAME",
+      personInCharge: "PERSON_IN_CHARGE",
       responseDetail: "RESPONSE_DETAIL",
+      inquiryCategory: "INQUIRY_CATEGORY",
+      status: "STATUS",
     } as const;
 
     const column = FIELD_MAP[body.field as keyof typeof FIELD_MAP];

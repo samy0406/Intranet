@@ -16,7 +16,7 @@ const MENU_ITEMS = [
     href: "/account-unlock",
     statusHref: "/account-unlock/status",
     label: "アカウントロック解除",
-    description: "ログインできない場合の解除申請",
+    description: "ログインできない場合の解除申請はこちらから",
     icon: "🔓",
     color: "from-amber-500 to-amber-600",
     available: true, // 未実装（グレーアウト表示）

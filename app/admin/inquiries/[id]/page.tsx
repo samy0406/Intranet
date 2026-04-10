@@ -10,25 +10,27 @@ type Inquiry = {
   id: number;
   name: string;
   department: string; // BUSYO
-  email: string; // MAILADDRESS（旧: mail）
+  email: string; // MAILADDRESS
   title: string;
   urgency: string;
   screenPath: string; // HOWTO_OPEN_SCREEN
-  background: string; // BACKGROUND（旧: message）
-  reqAction: string; // REQ_ACTION（旧: resolution）
-  urgentReason: string; // URGENT_REASON（旧: reason）
-  urgentApproval: string; // URGENT_APPROVAL（旧: approver）
+  background: string; // BACKGROUND
+  reqAction: string; // REQ_ACTION
+  urgentReason: string; // URGENT_REASON
+  urgentApproval: string; // URGENT_APPROVAL
   createdAt: string;
-  status: "未対応" | "完了"; // 対応中は廃止
-  closedName: string; // CLOSED_NAME（旧: handler）
-  closedDate: string; // CLOSED_DATE（旧: completedAt ※DB自動セット）
-  responseDetail: string; // RESPONSE_DETAIL（旧: responseNote）
+  status: "未対応" | "対応中" | "intec対応" | "完了";
+  personInCharge: string; // PERSON_IN_CHARGE（旧: CLOSED_NAME）
+  closedDate: string; // CLOSED_DATE（DB自動セット）
+  responseDetail: string; // RESPONSE_DETAIL
+  inquiryCategory: string; // INQUIRY_CATEGORY（新規）
 };
 
 // 管理者が記入する項目（完了日付はDB自動のため除外）
 type AdminFields = {
-  closedName: string;
+  personInCharge: string;
   responseDetail: string;
+  inquiryCategory: string;
 };
 
 // ── スタイル定数 ────────────────────────────────────────────
@@ -40,9 +42,15 @@ const URGENCY_STYLE: Record<string, string> = {
 };
 
 const STATUS_STYLE: Record<string, string> = {
-  未対応: "bg-red-100 text-red-700",
+  未対応: "bg-red-100    text-red-700",
+  対応中: "bg-blue-100   text-blue-700",
+  intec対応: "bg-purple-100 text-purple-700",
   完了: "bg-emerald-100 text-emerald-700",
 };
+
+// ── 問い合わせカテゴリの選択肢 ─────────────────────────────
+// ★ 追加・変更はこの配列を編集してください
+const INQUIRY_CATEGORIES = ["データ修正", "操作方法・使い方", "システム障害・エラー", "帳票・出力", "マスタ設定", "外部連携", "仕様確認", "その他"];
 
 const inputClass = `
   w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-800 text-sm bg-white
@@ -68,8 +76,9 @@ export default function InquiryDetailPage() {
   const [inquiry, setInquiry] = useState<Inquiry | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [adminFields, setAdminFields] = useState<AdminFields>({
-    closedName: "",
+    personInCharge: "",
     responseDetail: "",
+    inquiryCategory: "",
   });
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [isClosing, setIsClosing] = useState(false);
@@ -86,8 +95,9 @@ export default function InquiryDetailPage() {
       .then((data: Inquiry) => {
         setInquiry(data);
         setAdminFields({
-          closedName: data.closedName ?? "",
+          personInCharge: data.personInCharge ?? "",
           responseDetail: data.responseDetail ?? "",
+          inquiryCategory: data.inquiryCategory ?? "",
         });
       })
       .catch((err: Error) => setError(err.message));
@@ -114,10 +124,10 @@ export default function InquiryDetailPage() {
   };
 
   // ── 完了処理（「完了にする」ボタン用） ────────────────────
-  // { action: "close", closedName, responseDetail } をPATCHで送る（パターンB）
-  // → DBで CLOSED_DATE=SYSDATE が自動セットされる
+  // { action: "close", personInCharge, responseDetail, inquiryCategory } をPATCHで送る（パターンC）
+  // → DBで CLOSED_DATE=SYSDATE・STATUS='完了' が自動セットされる
   const handleClose = async () => {
-    if (!adminFields.closedName) {
+    if (!adminFields.personInCharge) {
       alert("対応者名を入力してください");
       return;
     }
@@ -130,8 +140,9 @@ export default function InquiryDetailPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "close",
-          closedName: adminFields.closedName,
+          personInCharge: adminFields.personInCharge,
           responseDetail: adminFields.responseDetail,
+          inquiryCategory: adminFields.inquiryCategory,
         }),
       });
       if (!res.ok) throw new Error("完了処理に失敗しました");
@@ -247,10 +258,43 @@ export default function InquiryDetailPage() {
           </div>
 
           <div className="space-y-6">
+            {/* 問い合わせカテゴリ */}
+            <div>
+              <label className="block text-sm font-semibold text-slate-600 mb-2">問い合わせカテゴリ</label>
+              <div className="flex flex-wrap gap-2">
+                {INQUIRY_CATEGORIES.map((cat) => {
+                  const isSelected = adminFields.inquiryCategory === cat;
+                  return (
+                    <button
+                      key={cat}
+                      type="button"
+                      disabled={isClosed}
+                      onClick={() => {
+                        const val = isSelected ? "" : cat; // 同じものをクリックで解除
+                        setAdminFields((prev) => ({ ...prev, inquiryCategory: val }));
+                        handleSave("inquiryCategory", val);
+                      }}
+                      className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all
+                        ${isSelected ? "bg-indigo-600 text-white border-indigo-600 shadow-sm" : "bg-white text-slate-500 border-slate-200 hover:border-indigo-300 hover:text-indigo-500"}
+                        disabled:opacity-50 disabled:cursor-not-allowed`}
+                    >
+                      {isSelected && <span className="mr-1">✓</span>}
+                      {cat}
+                    </button>
+                  );
+                })}
+              </div>
+              {adminFields.inquiryCategory && (
+                <p className="text-xs text-indigo-500 mt-2">
+                  選択中：<span className="font-semibold">{adminFields.inquiryCategory}</span>
+                </p>
+              )}
+            </div>
+
             {/* 対応者 */}
             <div>
               <label className="block text-sm font-semibold text-slate-600 mb-1.5">対応者</label>
-              <input type="text" value={adminFields.closedName} onChange={(e) => setAdminFields((prev) => ({ ...prev, closedName: e.target.value }))} onBlur={(e) => handleSave("closedName", e.target.value)} placeholder="例：山田太郎" disabled={isClosed} className={inputClass} />
+              <input type="text" value={adminFields.personInCharge} onChange={(e) => setAdminFields((prev) => ({ ...prev, personInCharge: e.target.value }))} onBlur={(e) => handleSave("personInCharge", e.target.value)} placeholder="例：山田太郎" disabled={isClosed} className={inputClass} />
             </div>
 
             {/* 完了日付（DBが自動セット → 読み取り専用で表示） */}
