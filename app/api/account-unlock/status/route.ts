@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { findAccountUnlock } from "@/lib/db-account-unlock";
+import { findAccountUnlock } from "@/lib/db";
 
 // GETリクエスト：アカウントコードで検索
 export async function GET(request: NextRequest) {

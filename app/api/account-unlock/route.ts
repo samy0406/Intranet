@@ -1,6 +1,6 @@
 // account-unlock/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { findAccountUnlock, deleteAccountUnlock, insertUnlockRecord } from "@/lib/db-account-unlock";
+import { findAccountUnlock, deleteAccountUnlock, insertUnlockRecord } from "@/lib/db";
 
 export async function POST(request: NextRequest) {
   try {
