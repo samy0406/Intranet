@@ -1,32 +1,9 @@
 "use client";
 
-import { useState, FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useAdminLogin } from "@/hooks/useAdminLogin";
 
 export default function AdminLoginPage() {
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-  const router = useRouter();
-
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
-
-    const res = await fetch("/api/admin/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password }),
-    });
-
-    if (res.ok) {
-      router.push("/admin/inquiries"); // 認証成功 → 管理者ページへ
-    } else {
-      setError("パスワードが違います");
-      setLoading(false);
-    }
-  };
+  const { password, error, loading, setPassword, handleSubmit } = useAdminLogin();
 
   return (
     <main className="min-h-screen bg-slate-900 flex items-center justify-center p-4">

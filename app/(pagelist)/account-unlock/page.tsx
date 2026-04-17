@@ -1,79 +1,12 @@
 "use client";
 
-import { useState, FormEvent, ChangeEvent } from "react";
-import { useRouter } from "next/navigation";
 import { BackToHomeButton } from "@/components/BackToHomeButton";
-
-type FormData = {
-  mail: string;
-  accountCode: string;
-};
-
-type Status = "idle" | "loading" | "done";
-
-type Errors = {
-  mail?: string;
-  accountCode?: string;
-};
-
-function validate(form: FormData): Errors {
-  const errors: Errors = {};
-  if (!form.mail.trim()) {
-    errors.mail = "メールアドレスを入力してください";
-  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.mail)) {
-    errors.mail = "正しい形式で入力してください";
-  }
-  if (!form.accountCode.trim()) errors.accountCode = "アカウントコードを入力してください";
-  return errors;
-}
+import { useAccountUnlock } from "@/hooks/useAccountUnlock";
 
 export default function AccountUnlockPage() {
-  const [form, setForm] = useState<FormData>({ mail: "", accountCode: "" });
-  const [errors, setErrors] = useState<Errors>({});
-  const [status, setStatus] = useState<Status>("idle");
-  const router = useRouter();
+  const { form, errors, status, hasInput, handleChange, handleSubmit, router } = useAccountUnlock();
 
-  const hasInput = Object.values(form).some((v) => v !== "");
-
-  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
-  };
-
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const newErrors = validate(form);
-    setErrors(newErrors);
-    if (Object.keys(newErrors).length > 0) {
-      const fieldOrder = ["mail", "accountCode"] as const;
-      const first = fieldOrder.find((k) => newErrors[k]);
-      if (first) {
-        setTimeout(() => {
-          const el = document.getElementById(`field-${first}`);
-          el?.scrollIntoView({ behavior: "smooth", block: "center" });
-          el?.focus();
-        }, 0);
-      }
-      return;
-    }
-
-    setStatus("loading");
-    try {
-      const data = new FormData();
-      Object.entries(form).forEach(([k, v]) => data.append(k, v));
-      const res = await fetch("/api/account-unlock", { method: "POST", body: data });
-      const json = await res.json();
-      if (json.status === "ok") setStatus("done");
-      else {
-        setErrors({ accountCode: json.message });
-        setStatus("idle");
-      }
-    } catch {
-      setErrors({ accountCode: "通信エラーが発生しました" });
-      setStatus("idle");
-    }
-  };
-
-  // 送信完了画面
+  // ── 送信完了画面 ──────────────────────────────────
   if (status === "done") {
     return (
       <main className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
@@ -99,12 +32,10 @@ export default function AccountUnlockPage() {
   return (
     <main className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* 戻るボタン */}
         <div className="mb-6">
           <BackToHomeButton hasInput={hasInput} />
         </div>
 
-        {/* カード */}
         <div className="bg-slate-800 border border-slate-700 rounded-2xl p-8">
           {/* ヘッダー */}
           <div className="flex items-center gap-3 mb-8">
@@ -121,20 +52,20 @@ export default function AccountUnlockPage() {
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* メールアドレス */}
             <div id="field-mail" tabIndex={-1} className="scroll-mt-6">
-              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5">
+              <label className={labelClass}>
                 メールアドレス <span className="text-rose-400">*</span>
               </label>
               <input type="email" name="mail" value={form.mail} onChange={handleChange} placeholder="例：taro_yamada@hoyu.co.jp" className={inputClass} />
-              {errors.mail && <p className="text-rose-400 text-xs mt-1">⚠ {errors.mail}</p>}
+              {errors.mail && <p className={errClass}>⚠ {errors.mail}</p>}
             </div>
 
             {/* アカウントコード */}
             <div id="field-accountCode" tabIndex={-1} className="scroll-mt-6">
-              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5">
+              <label className={labelClass}>
                 アカウントコード <span className="text-rose-400">*</span>
               </label>
               <input type="text" name="accountCode" value={form.accountCode} onChange={handleChange} placeholder="例：SET12" className={`${inputClass} font-mono tracking-wider`} />
-              {errors.accountCode && <p className="text-rose-400 text-xs mt-1">⚠ {errors.accountCode}</p>}
+              {errors.accountCode && <p className={errClass}>⚠ {errors.accountCode}</p>}
             </div>
 
             {/* 送信ボタン */}
@@ -159,3 +90,5 @@ const inputClass = `
   text-white placeholder-slate-500 text-sm
   focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent transition
 `;
+const labelClass = "block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5";
+const errClass = "text-rose-400 text-xs mt-1";

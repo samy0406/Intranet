@@ -1,61 +1,18 @@
 "use client";
 
-import { useState, FormEvent, ChangeEvent } from "react";
 import { BackToHomeButton } from "@/components/BackToHomeButton";
-
-// 検索結果の状態
-type SearchResult = "pending" | "available" | null;
-// pending   = 申請データが見つかった → まだ処理中
-// available = 申請データがない     → ログイン可能
-// null      = まだ検索していない
-
-type Status = "idle" | "loading";
+import { useAccountUnlockStatus } from "@/hooks/useAccountUnlockStatus";
 
 export default function AccountUnlockStatusPage() {
-  const [accountCode, setAccountCode] = useState<string>("");
-  const [result, setResult] = useState<SearchResult>(null);
-  const [status, setStatus] = useState<Status>("idle");
-  const [error, setError] = useState<string>("");
-
-  const handleSearch = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setError("");
-    setResult(null);
-
-    if (!accountCode.trim()) {
-      setError("アカウントコードを入力してください");
-      return;
-    }
-
-    setStatus("loading");
-    try {
-      const res = await fetch(`/api/account-unlock/status?accountCode=${encodeURIComponent(accountCode)}`);
-      const json = await res.json();
-
-      if (!res.ok) {
-        setError(json.message ?? "エラーが発生しました");
-        setStatus("idle");
-        return;
-      }
-
-      // APIから found: true/false で結果を受け取る
-      setResult(json.found ? "pending" : "available");
-    } catch {
-      setError("通信エラーが発生しました");
-    } finally {
-      setStatus("idle");
-    }
-  };
+  const { accountCode, result, status, error, handleChange, handleSearch } = useAccountUnlockStatus();
 
   return (
     <main className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* 戻るボタン */}
         <div className="mb-6">
           <BackToHomeButton />
         </div>
 
-        {/* カード */}
         <div className="bg-slate-800 border border-slate-700 rounded-2xl p-8">
           {/* ヘッダー */}
           <div className="flex items-center gap-3 mb-8">
@@ -71,19 +28,9 @@ export default function AccountUnlockStatusPage() {
           {/* 検索フォーム */}
           <form onSubmit={handleSearch} className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5">アカウントコード</label>
-              <input
-                type="text"
-                value={accountCode}
-                onChange={(e: ChangeEvent<HTMLInputElement>) => {
-                  setAccountCode(e.target.value);
-                  setResult(null); // 入力が変わったら結果をリセット
-                  setError("");
-                }}
-                placeholder="例：SET12"
-                className={`${inputClass} font-mono tracking-wider`}
-              />
-              {error && <p className="text-rose-400 text-xs mt-1">⚠ {error}</p>}
+              <label className={labelClass}>アカウントコード</label>
+              <input type="text" value={accountCode} onChange={handleChange} placeholder="例：SET12" className={`${inputClass} font-mono tracking-wider`} />
+              {error && <p className={errClass}>⚠ {error}</p>}
             </div>
 
             <button
@@ -99,13 +46,7 @@ export default function AccountUnlockStatusPage() {
 
           {/* 検索結果 */}
           {result !== null && (
-            <div
-              className={`mt-6 rounded-xl p-5 border ${
-                result === "pending"
-                  ? "bg-amber-500/10 border-amber-500/30" // 処理中 → 黄色
-                  : "bg-emerald-500/10 border-emerald-500/30" // ログイン可能 → 緑
-              }`}
-            >
+            <div className={`mt-6 rounded-xl p-5 border ${result === "pending" ? "bg-amber-500/10 border-amber-500/30" : "bg-emerald-500/10 border-emerald-500/30"}`}>
               <div className="flex items-start gap-3">
                 <span className="text-2xl mt-0.5">{result === "pending" ? "⏳" : "✅"}</span>
                 <div>
@@ -126,3 +67,5 @@ const inputClass = `
   text-white placeholder-slate-500 text-sm
   focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent transition
 `;
+const labelClass = "block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5";
+const errClass = "text-rose-400 text-xs mt-1";

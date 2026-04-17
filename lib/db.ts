@@ -19,9 +19,6 @@ async function getConnection(): Promise<oracledb.Connection> {
 export async function saveInquiry(data: { inquiry_name: string; busyo?: string; mailaddress?: string; title?: string; urgency?: string; urgentReason?: string; urgentApproval?: string; howtoOpenScreen?: string; background?: string; reqAction?: string }): Promise<number> {
   const conn = await getConnection();
   try {
-    // MC_INQUIRY_NO はシーケンスから自動採番
-    // ★ シーケンス名が違う場合はここを修正してください
-    // RETURNING でINSERT後に採番されたIDを取得する
     const result = await conn.execute(
       `INSERT INTO MCTEST1.W_TBL_INQUIRY_RECORD
         (MC_INQUIRY_NO, INQUIRY_NAME, BUSYO, MAILADDRESS, TITLE,
@@ -46,13 +43,10 @@ export async function saveInquiry(data: { inquiry_name: string; busyo?: string; 
         howtoOpenScreen: data.howtoOpenScreen ?? null,
         background: data.background ?? null,
         reqAction: data.reqAction ?? null,
-        // RETURNING で受け取る変数（出力専用）
         insertedId: { dir: oracledb.BIND_OUT, type: oracledb.NUMBER },
       },
     );
     await conn.commit();
-
-    // 採番されたIDを返す
     const outBinds = result.outBinds as { insertedId: number[] };
     return outBinds.insertedId[0];
   } finally {
@@ -145,11 +139,9 @@ export async function closeInquiry(id: number, personInCharge: string, responseD
 }
 
 // ── フィールドを個別に更新する（自動保存・ステータス変更用） ────────
-// column は許可されたカラム名に限定（セキュリティ対策）
 export async function updateInquiryField(id: number, column: "PERSON_IN_CHARGE" | "RESPONSE_DETAIL" | "INQUIRY_CATEGORY" | "STATUS", value: string): Promise<void> {
   const conn = await getConnection();
   try {
-    // column は TypeScript側で安全な値に限定しているのでテンプレートリテラルOK
     await conn.execute(
       `UPDATE MCTEST1.W_TBL_INQUIRY_RECORD
        SET ${column} = :value
@@ -187,13 +179,56 @@ export async function getInquiriesByEmail(mail: string) {
   }
 }
 
+// ════════════════════════════════════════════════════
+// アカウントロック解除
+// ════════════════════════════════════════════════════
+
+export async function findAccountUnlock(accountCode: string): Promise<boolean> {
+  const conn = await getConnection();
+  try {
+    const result = await conn.execute(`SELECT COUNT(*) AS ULOGIN FROM T_LOGIN WHERE USER_ID = :accountCode`, { accountCode }, { outFormat: oracledb.OUT_FORMAT_OBJECT });
+    const rows = result.rows as { ULOGIN: number }[];
+    return rows[0].ULOGIN > 0;
+  } finally {
+    await conn.close();
+  }
+}
+
+// 解除申請用：対象のレコードを削除する
+export async function deleteAccountUnlock(accountCode: string): Promise<void> {
+  const conn = await getConnection();
+  try {
+    await conn.execute(`DELETE FROM T_LOGIN WHERE USER_ID = :accountCode`, { accountCode });
+    await conn.commit();
+  } finally {
+    await conn.close();
+  }
+}
+
+// W_TBL_UNLOCK にロック解除記録をINSERTする
+export async function insertUnlockRecord(accountCode: string, mailaddress: string): Promise<void> {
+  const conn = await getConnection();
+  try {
+    await conn.execute(
+      `INSERT INTO MCTEST1.W_TBL_UNLOCK (UNLOCK_DATE, USER_ID, MAILADDRESS)
+       VALUES (SYSDATE, :accountCode, :mailaddress)`,
+      { accountCode, mailaddress },
+    );
+    await conn.commit();
+  } finally {
+    await conn.close();
+  }
+}
+
+// ════════════════════════════════════════════════════
+// 保管期限延長
+// ════════════════════════════════════════════════════
+
 // ── 保管期限を検索する（SELECT_HOKAN_KIGEN.sql に相当） ──
 export async function getHokanKigen(itemCode: string, lotNo: string) {
   const conn = await getConnection();
   try {
     const result = await conn.execute(
-      // ポイント: SQL*Plusの &1 &2 → oracledbでは :変数名 に変換
-      // 同じ変数名を複数箇所で使ってもOK（バインド値は1つ渡すだけ）
       `SELECT
          T1.品目コード        AS "itemCode",
          T2.品名              AS "itemName",
@@ -215,7 +250,6 @@ export async function getHokanKigen(itemCode: string, lotNo: string) {
       { outFormat: oracledb.OUT_FORMAT_OBJECT },
     );
     const rows = result.rows ?? [];
-    // 見つからなければ null を返す
     return rows.length > 0 ? (rows[0] as Record<string, string>) : null;
   } finally {
     await conn.close();
@@ -223,15 +257,9 @@ export async function getHokanKigen(itemCode: string, lotNo: string) {
 }
 
 // ── 保管期限を更新する（UPDATE_HOKAN_KIGEN.sql に相当） ──
-export async function updateHokanKigen(
-  itemCode: string,
-  lotNo: string,
-  newDate: string, // "YYYY-MM-DD" 形式で受け取る
-  mailaddress: string,
-): Promise<void> {
+export async function updateHokanKigen(itemCode: string, lotNo: string, newDate: string, mailaddress: string): Promise<void> {
   const conn = await getConnection();
   try {
-    // ★ 更新前の保管期限を取得（ログ用）
     const oldResult = await conn.execute(
       `SELECT TO_CHAR(保管期限, 'YYYY-MM-DD') AS "oldDate"
        FROM T_SHIKENPLUS
@@ -249,7 +277,6 @@ export async function updateHokanKigen(
     const oldRows = (oldResult.rows as Record<string, string>[]) ?? [];
     const oldDate = oldRows.length > 0 ? oldRows[0]["oldDate"] : null;
 
-    // T_SHIKEN の保管期限を更新
     await conn.execute(
       `UPDATE T_SHIKEN
        SET    保管期限 = TO_DATE(:newDate, 'YYYY-MM-DD')
@@ -264,7 +291,6 @@ export async function updateHokanKigen(
       { itemCode, lotNo, newDate },
     );
 
-    // T_SHIKENR に履歴INSERT（更新レコードをそのままコピー）
     await conn.execute(
       `INSERT INTO T_SHIKENR (
          品目コード,ロットＮＯ,試験回数,場所コード,良品区分,数量,業者ロットＮＯ,
@@ -299,7 +325,6 @@ export async function updateHokanKigen(
       { itemCode, lotNo },
     );
 
-    // T_SHIKENPLUS の保管期限を更新
     await conn.execute(
       `UPDATE T_SHIKENPLUS
        SET    保管期限 = TO_DATE(:newDate, 'YYYY-MM-DD')
@@ -314,7 +339,6 @@ export async function updateHokanKigen(
       { itemCode, lotNo, newDate },
     );
 
-    // T_SHIKENPLUSR に履歴INSERT
     await conn.execute(
       `INSERT INTO T_SHIKENPLUSR (
         品目コード,ロットＮＯ,試験回数,メーカコード,メーカ期限,使用期限,保管期限,
@@ -340,7 +364,6 @@ export async function updateHokanKigen(
       { itemCode, lotNo },
     );
 
-    // メーカ期限も更新（NULLでない行だけ）
     await conn.execute(
       `UPDATE T_SHIKENPLUS
        SET    メーカ期限 = TO_DATE(:newDate, 'YYYY-MM-DD')
@@ -356,7 +379,6 @@ export async function updateHokanKigen(
       { itemCode, lotNo, newDate },
     );
 
-    // ★ 更新ログをW_TBL_UPDATE_HOKANKIGENに記録
     await conn.execute(
       `INSERT INTO MCTEST1.W_TBL_UPDATE_HOKANKIGEN
          (UPDATE_DATE, MAILADDRESS, HINMO_CD, LOT_NO, OLD_HOKANKIGEN, NEW_HOKANKIGEN)
@@ -367,22 +389,161 @@ export async function updateHokanKigen(
           :lotNo,
           TO_DATE(:oldDate, 'YYYY-MM-DD'),
           TO_DATE(:newDate, 'YYYY-MM-DD'))`,
-      {
-        mailaddress,
-        itemCode,
-        lotNo,
-        oldDate, // ①で取得した更新前の日付
-        newDate, // 引数で受け取った新しい日付
-      },
+      { mailaddress, itemCode, lotNo, oldDate, newDate },
     );
 
-    // 全ステートメント成功したらまとめてCOMMIT
     await conn.commit();
   } catch (err) {
-    // 1つでも失敗したらROLLBACK（元の状態に戻す）
     await conn.rollback();
     console.error("updateHokanKigen エラー:", err);
     throw err;
+  } finally {
+    await conn.close();
+  }
+}
+
+// ════════════════════════════════════════════════════
+// 総合判定取消
+// ════════════════════════════════════════════════════
+
+// ── 取消前の現在値を取得（確認モーダル・処理状況確認用） ──────
+export async function getJudgmentStatus(itemCode: string, lotNo: string): Promise<{ shiken: string; judgmentDate: string; expiryDate: string } | null> {
+  const conn = await getConnection();
+  try {
+    const result = await conn.execute(
+      `SELECT
+         試験区分,
+         TO_CHAR(総合判定日, 'YYYY/MM/DD') AS 総合判定日,
+         TO_CHAR(保管期限,   'YYYY/MM/DD') AS 保管期限
+       FROM MCTEST1.T_SHIKEN
+       WHERE 品目コード = :itemCode
+         AND ロットＮＯ   = :lotNo
+         AND 試験区分     = '9'
+         AND 試験回数     = (
+           SELECT MAX(T2.試験回数)
+           FROM MCTEST1.T_SHIKEN T2
+           WHERE T2.品目コード = :itemCode
+             AND T2.ロットＮＯ = :lotNo
+             AND T2.試験区分   = '9'
+         )`,
+      { itemCode, lotNo },
+      { outFormat: oracledb.OUT_FORMAT_OBJECT },
+    );
+
+    const rows = result.rows as Record<string, unknown>[];
+    if (!rows || rows.length === 0) return null;
+
+    const row = rows[0];
+    return {
+      shiken: String(row["試験区分"] ?? "—"),
+      judgmentDate: String(row["総合判定日"] ?? "—"),
+      expiryDate: String(row["保管期限"] ?? "—"),
+    };
+  } finally {
+    await conn.close();
+  }
+}
+
+// ── 総合判定取消を実行 ────────────────────────────
+export async function cancelJudgment(itemCode: string, lotNo: string, mail: string): Promise<void> {
+  const conn = await getConnection();
+  try {
+    // ① 更新前に総合判定日を取得（ログ用）
+    const selectResult = await conn.execute(
+      `SELECT 総合判定日
+       FROM MCTEST1.T_SHIKEN
+       WHERE 品目コード = :itemCode
+         AND ロットＮＯ   = :lotNo
+         AND 試験区分     = '9'
+         AND 試験回数     = (
+           SELECT MAX(T2.試験回数)
+           FROM MCTEST1.T_SHIKEN T2
+           WHERE T2.品目コード = :itemCode
+             AND T2.ロットＮＯ = :lotNo
+             AND T2.試験区分   = '9'
+         )`,
+      { itemCode, lotNo },
+      { outFormat: oracledb.OUT_FORMAT_OBJECT },
+    );
+
+    const rows = selectResult.rows as Record<string, unknown>[];
+    if (!rows || rows.length === 0) {
+      throw new Error("該当データが見つかりません");
+    }
+    const shanteiDate = rows[0]["総合判定日"] ?? null;
+
+    // ② T_SHIKEN 更新
+    await conn.execute(
+      `UPDATE MCTEST1.T_SHIKEN SET
+         試験区分         = '5',
+         総合判定日       = NULL,
+         判定者コード     = NULL,
+         判定者部門コード = NULL,
+         判定者正副フラグ = NULL,
+         判定結果区分     = NULL,
+         保証期限         = NULL,
+         保管期限         = NULL
+       WHERE 品目コード = :itemCode
+         AND ロットＮＯ   = :lotNo
+         AND 試験区分     = '9'
+         AND 試験回数     = (
+           SELECT MAX(T2.試験回数)
+           FROM MCTEST1.T_SHIKEN T2
+           WHERE T2.品目コード = :itemCode
+             AND T2.ロットＮＯ = :lotNo
+             AND T2.試験区分   = '9'
+         )`,
+      { itemCode, lotNo },
+    );
+
+    // ③ 取消ログ挿入
+    await conn.execute(
+      `INSERT INTO MCTEST1.W_TBL_CANCEL_SHANTEI
+         (HINMO_CD, LOT_NO, SHANTEI_DATE, MAILADDRESS, CANCEL_DATE)
+       VALUES
+         (:itemCode, :lotNo, :shanteiDate, :mail, SYSDATE)`,
+      { itemCode, lotNo, shanteiDate, mail },
+    );
+
+    await conn.commit();
+  } catch (err) {
+    await conn.rollback();
+    console.error("cancelJudgment エラー:", err);
+    throw err;
+  } finally {
+    await conn.close();
+  }
+}
+
+// ── 試験区分を取得（処理状況確認用・取消後も検索できるよう試験区分の絞り込みなし） ──
+export async function getJudgmentStatusForCheck(itemCode: string, lotNo: string): Promise<{ shiken: string; judgmentDate: string } | null> {
+  const conn = await getConnection();
+  try {
+    const result = await conn.execute(
+      `SELECT
+         試験区分,
+         TO_CHAR(総合判定日, 'YYYY/MM/DD') AS 総合判定日
+       FROM MCTEST1.T_SHIKEN
+       WHERE 品目コード = :itemCode
+         AND ロットＮＯ   = :lotNo
+         AND 試験回数     = (
+           SELECT MAX(T2.試験回数)
+           FROM MCTEST1.T_SHIKEN T2
+           WHERE T2.品目コード = :itemCode
+             AND T2.ロットＮＯ = :lotNo
+         )`,
+      { itemCode, lotNo },
+      { outFormat: oracledb.OUT_FORMAT_OBJECT },
+    );
+
+    const rows = result.rows as Record<string, unknown>[];
+    if (!rows || rows.length === 0) return null;
+
+    const row = rows[0];
+    return {
+      shiken: String(row["試験区分"] ?? "—"),
+      judgmentDate: String(row["総合判定日"] ?? "—"),
+    };
   } finally {
     await conn.close();
   }

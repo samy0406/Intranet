@@ -1,20 +1,17 @@
+// app/api/storage-extension/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { updateHokanKigen } from "@/lib/db";
 
 export async function POST(request: NextRequest) {
   try {
-    // 品目配列を含むためJSONで受け取る
     const body = await request.json();
-    const { mail, items } = body;
+    const { mail, itemCode, lotNo, expiryDate } = body;
 
-    if (!mail || !items?.length) {
+    if (!mail || !itemCode || !lotNo || !expiryDate) {
       return NextResponse.json({ status: "error", message: "必須項目を入力してください" }, { status: 400 });
     }
 
-    // items を順番に処理（1件でも失敗すると throw してロールバック）
-    for (const item of items as { itemCode: string; lotNo: string; expiryDate: string }[]) {
-      await updateHokanKigen(item.itemCode, item.lotNo, item.expiryDate, mail);
-    }
+    await updateHokanKigen(itemCode, lotNo, expiryDate, mail);
 
     return NextResponse.json({ status: "ok", message: "申請を受け付けました" });
   } catch {

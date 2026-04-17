@@ -1,5 +1,6 @@
+// account-unlock/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { findAccountUnlock, deleteAccountUnlock } from "@/lib/db-account-unlock";
+import { findAccountUnlock, deleteAccountUnlock, insertUnlockRecord } from "@/lib/db-account-unlock";
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,6 +23,8 @@ export async function POST(request: NextRequest) {
 
     // T_LOGIN から削除（ロック解除）
     await deleteAccountUnlock(accountCode);
+    // W_TBL_UNLOCK に記録を追加
+    await insertUnlockRecord(accountCode, mail);
 
     return NextResponse.json({ status: "ok", message: "解除しました" });
   } catch (error) {
