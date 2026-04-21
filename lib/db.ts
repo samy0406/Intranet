@@ -11,7 +11,7 @@ const DB_CONFIG: oracledb.ConnectionAttributes = {
   connectString: process.env.ORACLE_CONN_STRING,
 };
 
-async function getConnection(): Promise<oracledb.Connection> {
+export async function getConnection(): Promise<oracledb.Connection> {
   return await oracledb.getConnection(DB_CONFIG);
 }
 

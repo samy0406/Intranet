@@ -6,16 +6,16 @@ import { useAdminInquiryDetail, INQUIRY_CATEGORIES, AdminFields } from "@/hooks/
 // ── スタイル定数 ────────────────────────────────────────
 const URGENCY_STYLE: Record<string, string> = {
   至急: "bg-red-100 text-red-700",
-  高:   "bg-orange-100 text-orange-700",
-  中:   "bg-yellow-100 text-yellow-700",
-  低:   "bg-slate-100 text-slate-500",
+  高: "bg-orange-100 text-orange-700",
+  中: "bg-yellow-100 text-yellow-700",
+  低: "bg-slate-100 text-slate-500",
 };
 
 const STATUS_STYLE: Record<string, string> = {
-  未対応:    "bg-red-100    text-red-700",
-  対応中:    "bg-blue-100   text-blue-700",
+  未対応: "bg-red-100    text-red-700",
+  対応中: "bg-blue-100   text-blue-700",
   intec対応: "bg-purple-100 text-purple-700",
-  完了:      "bg-emerald-100 text-emerald-700",
+  完了: "bg-emerald-100 text-emerald-700",
 };
 
 const inputClass = `
@@ -34,10 +34,7 @@ function InfoRow({ label, children }: { label: string; children: React.ReactNode
 }
 
 export default function InquiryDetailPage() {
-  const {
-    inquiry, error, adminFields, saveStatus, isClosing, isClosed,
-    setAdminFields, handleSave, handleClose, router,
-  } = useAdminInquiryDetail();
+  const { inquiry, error, adminFields, saveStatus, isClosing, isClosed, setAdminFields, handleSave, handleClose, router } = useAdminInquiryDetail();
 
   // ── ローディング ──────────────────────────────────
   if (!inquiry && !error) {
@@ -173,15 +170,7 @@ export default function InquiryDetailPage() {
             {/* 対応者 */}
             <div>
               <label className="block text-sm font-semibold text-slate-600 mb-1.5">対応者</label>
-              <input
-                type="text"
-                value={adminFields.personInCharge}
-                onChange={(e) => setAdminFields((prev) => ({ ...prev, personInCharge: e.target.value }))}
-                onBlur={(e) => handleSave("personInCharge", e.target.value)}
-                placeholder="例：山田太郎"
-                disabled={isClosed}
-                className={inputClass}
-              />
+              <input type="text" value={adminFields.personInCharge} onChange={(e) => setAdminFields((prev) => ({ ...prev, personInCharge: e.target.value }))} onBlur={(e) => handleSave("personInCharge", e.target.value)} placeholder="例：山田太郎" disabled={isClosed} className={inputClass} />
             </div>
 
             {/* 完了日付 */}
@@ -195,15 +184,7 @@ export default function InquiryDetailPage() {
             {/* 対応内容 */}
             <div>
               <label className="block text-sm font-semibold text-slate-600 mb-1.5">対応内容</label>
-              <textarea
-                value={adminFields.responseDetail}
-                onChange={(e) => setAdminFields((prev) => ({ ...prev, responseDetail: e.target.value }))}
-                onBlur={(e) => handleSave("responseDetail", e.target.value)}
-                placeholder="実施した対応内容を記入してください..."
-                rows={6}
-                disabled={isClosed}
-                className={`${inputClass} resize-none`}
-              />
+              <textarea value={adminFields.responseDetail} onChange={(e) => setAdminFields((prev) => ({ ...prev, responseDetail: e.target.value }))} onBlur={(e) => handleSave("responseDetail", e.target.value)} placeholder="実施した対応内容を記入してください..." rows={6} disabled={isClosed} className={`${inputClass} resize-none`} />
               {!isClosed && <p className="text-xs text-slate-400 mt-1">※ 入力欄からカーソルが外れると自動保存されます</p>}
             </div>
 
@@ -224,7 +205,7 @@ export default function InquiryDetailPage() {
         {/* Outlookで返信ボタン */}
         {inquiry!.email && (
           <div className="mt-4">
-
+            <a
               href={`mailto:${inquiry!.email}?subject=【RE: お問い合わせ】${encodeURIComponent(inquiry!.title)}`}
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 text-white
                 text-sm font-semibold hover:bg-indigo-700 transition-colors"

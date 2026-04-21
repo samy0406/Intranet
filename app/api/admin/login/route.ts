@@ -1,3 +1,4 @@
+// app/api/admin/login/route.ts
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
@@ -12,7 +13,6 @@ export async function POST(request: NextRequest) {
   // Cookie にセッションを保存（有効期限8時間）
   res.cookies.set("admin_session", process.env.SESSION_SECRET!, {
     httpOnly: true, // JavaScriptからアクセス不可（セキュリティ対策）
-    maxAge: 60 * 60 * 8, // 8時間
     path: "/",
     sameSite: "lax",
   });

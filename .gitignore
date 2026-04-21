@@ -10,3 +10,4 @@ node_modules/
 
 # アップロードファイル
 uploads/
+test-db.mjs

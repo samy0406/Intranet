@@ -3,6 +3,7 @@ import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import { saveInquiry } from "@/lib/db"; // ← コメントアウトを解除
 import { ApiResponse } from "@/types/inquiry";
+import { getValidAccessToken } from "@/lib/boxTokens";
 
 // ── Boxにフォルダを作成してファイルをアップロード ──
 async function sendFilesToBox(
@@ -166,7 +167,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
 
     // ── Box へファイルを送信 ──────────────────────────
     if (filesToSend.length > 0) {
-      const token = process.env.BOX_DEV_TOKEN!;
+      const token = await getValidAccessToken();
       const folderId = process.env.BOX_FOLDER_ID!;
       const inquiryId = savedId.toString(); // ← DBのIDを使う
 

@@ -20,8 +20,13 @@ export function useAdminLogin() {
       });
 
       if (res.ok) {
+        console.log("✅ ログイン成功 → push開始");
+        router.refresh();
         router.push("/admin/inquiries");
+        console.log("✅ push呼び出し完了");
       } else {
+        const body = await res.json();
+        console.log("❌ ログイン失敗 status:", res.status, body);
         setError("パスワードが違います");
       }
     } catch {
