@@ -1,3 +1,4 @@
+// hooks\useAdminInquiries.ts
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
@@ -20,8 +21,6 @@ export type Inquiry = {
 export type SortKey = "id" | "date" | "urgency" | "status";
 
 // ── カテゴリ選択肢 ────────────────────────────────────
-export const INQUIRY_CATEGORIES = ["データ修正", "操作方法・使い方", "システム障害・エラー", "帳票・出力", "マスタ設定", "権限・アクセス", "外部連携", "仕様確認", "その他"];
-
 const URGENCY_ORDER: Record<string, number> = { 至急: 0, 高: 1, 中: 2, 低: 3 };
 const STATUS_ORDER: Record<string, number> = { 未対応: 0, 対応中: 1, intec対応: 2, 完了: 3 };
 
@@ -36,6 +35,7 @@ export function useAdminInquiries() {
   const [filterDateFrom, setFilterDateFrom] = useState<string>("");
   const [filterDateTo, setFilterDateTo] = useState<string>("");
   const [openStatusId, setOpenStatusId] = useState<number | null>(null);
+  const [statusError, setStatusError] = useState<string>("");
   const router = useRouter();
 
   // ── 初回データ取得 ──────────────────────────────────
@@ -62,6 +62,7 @@ export function useAdminInquiries() {
     const prevInquiries = inquiries;
     setInquiries((prev) => (prev ?? []).map((i) => (i.id === itemId ? { ...i, status: newStatus } : i)));
     setOpenStatusId(null);
+    setStatusError("");
 
     try {
       const res = await fetch(`/api/admin/inquiries/${itemId}`, {
@@ -72,7 +73,7 @@ export function useAdminInquiries() {
       if (!res.ok) throw new Error("保存失敗");
     } catch {
       setInquiries(prevInquiries);
-      alert("ステータスの更新に失敗しました。再度お試しください。");
+      setStatusError("ステータスの更新に失敗しました。再度お試しください。");
     }
   };
 
@@ -143,5 +144,6 @@ export function useAdminInquiries() {
     handleStatusChange,
     setOpenStatusId,
     router,
+    statusError,
   };
 }

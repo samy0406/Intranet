@@ -19,7 +19,7 @@ const MENU_ITEMS = [
     description: "ログインできない場合の解除申請はこちらから",
     icon: "🔓",
     color: "from-amber-500 to-amber-600",
-    available: true, // 未実装（グレーアウト表示）
+    available: true, // 未実装 falseで（グレーアウト表示）
   },
   {
     href: "/storage-extension",
@@ -37,6 +37,15 @@ const MENU_ITEMS = [
     description: "総合判定の取消申請はこちらから",
     icon: "↩️",
     color: "from-rose-500 to-rose-600",
+    available: true,
+  },
+  {
+    href: "/master-up",
+    statusHref: "/master-up/status",
+    label: "マスタup",
+    description: "マスタupの申請はこちらから",
+    icon: "✏️",
+    color: "from-violet-500 to-violet-600",
     available: true,
   },
 ] as const;

@@ -1,7 +1,9 @@
+// app\(pagelist)\admin\inquiries\[id]\page.tsx
 "use client";
 
 import Link from "next/link";
-import { useAdminInquiryDetail, INQUIRY_CATEGORIES, AdminFields } from "@/hooks/useAdminInquiryDetail";
+import { useAdminInquiryDetail } from "@/hooks/useAdminInquiryDetail";
+import { INQUIRY_CATEGORIES } from "@/lib/constants";
 
 // ── スタイル定数 ────────────────────────────────────────
 const URGENCY_STYLE: Record<string, string> = {
@@ -34,7 +36,7 @@ function InfoRow({ label, children }: { label: string; children: React.ReactNode
 }
 
 export default function InquiryDetailPage() {
-  const { inquiry, error, adminFields, saveStatus, isClosing, isClosed, setAdminFields, handleSave, handleClose, router } = useAdminInquiryDetail();
+  const { inquiry, error, saveError, adminFields, saveStatus, isClosing, isClosed, setAdminFields, handleSave, handleClose, router } = useAdminInquiryDetail();
 
   // ── ローディング ──────────────────────────────────
   if (!inquiry && !error) {
@@ -132,6 +134,8 @@ export default function InquiryDetailPage() {
             {saveStatus === "saving" && <span className="text-xs text-slate-400 animate-pulse">保存中...</span>}
             {saveStatus === "saved" && <span className="text-xs text-emerald-500">✓ 保存しました</span>}
           </div>
+
+          {saveError && <div className="mb-4 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm">⚠ {saveError}</div>}
 
           <div className="space-y-6">
             {/* 問い合わせカテゴリ */}

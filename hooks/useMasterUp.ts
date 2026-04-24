@@ -3,21 +3,22 @@ import { validateMail, focusFirstError } from "@/lib/formUtils";
 import { useRouter } from "next/navigation";
 
 // ── 型定義 ──────────────────────────────────────────
-export type AccountUnlockForm = { mail: string; accountCode: string };
-export type AccountUnlockErrors = { mail?: string; accountCode?: string };
+export type MasterUpForm = { mail: string; itemCode: string };
+export type MasterUpErrors = { mail?: string; itemCode?: string };
 export type Status = "idle" | "loading" | "done";
 
-function validate(form: AccountUnlockForm): AccountUnlockErrors {
-  const errors: AccountUnlockErrors = {};
+// ── バリデーション（純粋関数） ────────────────────────
+function validate(form: MasterUpForm): MasterUpErrors {
+  const errors: MasterUpErrors = {};
   const mailError = validateMail(form.mail);
   if (mailError) errors.mail = mailError;
-  if (!form.accountCode.trim()) errors.accountCode = "アカウントコードを入力してください";
+  if (!form.itemCode.trim()) errors.itemCode = "品目コードを入力してください";
   return errors;
 }
 
-export function useAccountUnlock() {
-  const [form, setForm] = useState<AccountUnlockForm>({ mail: "", accountCode: "" });
-  const [errors, setErrors] = useState<AccountUnlockErrors>({});
+export function useMasterUp() {
+  const [form, setForm] = useState<MasterUpForm>({ mail: "", itemCode: "" });
+  const [errors, setErrors] = useState<MasterUpErrors>({});
   const [apiError, setApiError] = useState("");
   const [status, setStatus] = useState<Status>("idle");
   const router = useRouter();
@@ -32,14 +33,14 @@ export function useAccountUnlock() {
     setErrors(newErrors);
 
     if (Object.keys(newErrors).length > 0) {
-      focusFirstError(["mail", "accountCode"], newErrors);
+      focusFirstError(["mail", "itemCode"], newErrors);
       return;
     }
 
     setStatus("loading");
     setApiError("");
     try {
-      const res = await fetch("/api/account-unlock", {
+      const res = await fetch("/api/master", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),

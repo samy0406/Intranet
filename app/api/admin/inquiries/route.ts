@@ -9,7 +9,7 @@ export async function GET() {
     const inquiries = await getAllInquiries();
     return NextResponse.json(inquiries);
   } catch (error) {
-    const msg = error instanceof Error ? error.message : "サーバーエラー";
-    return NextResponse.json({ error: msg }, { status: 500 });
+    const message = error instanceof Error ? error.message : "サーバーエラー";
+    return NextResponse.json({ status: "error", message }, { status: 500 });
   }
 }

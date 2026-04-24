@@ -5,7 +5,7 @@ export async function POST(request: NextRequest) {
   const { password } = await request.json();
 
   if (password !== process.env.ADMIN_PASSWORD) {
-    return NextResponse.json({ message: "パスワードが違います" }, { status: 401 });
+    return NextResponse.json({ status: "error", message: "パスワードが違います" }, { status: 401 });
   }
 
   const res = NextResponse.json({ status: "ok" });

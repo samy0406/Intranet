@@ -548,3 +548,7 @@ export async function getJudgmentStatusForCheck(itemCode: string, lotNo: string)
     await conn.close();
   }
 }
+
+// ════════════════════════════════════════════════════
+// マスタup
+// ════════════════════════════════════════════════════

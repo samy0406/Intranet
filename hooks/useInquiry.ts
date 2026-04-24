@@ -1,6 +1,8 @@
+//hooks\useInquiry.ts
 import { useState, DragEvent, ChangeEvent, FormEvent, ClipboardEvent } from "react";
 import { InquiryFormData, InquiryFormErrors, ApiResponse } from "@/types/inquiry";
 import { validateInquiryForm } from "@/lib/validate";
+import { focusFirstError } from "@/lib/formUtils";
 
 // ── 型定義 ──────────────────────────────────────────
 export type Status = "idle" | "loading" | "done";
@@ -27,6 +29,7 @@ export function useInquiry() {
   const [status, setStatus] = useState<Status>("idle");
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [errors, setErrors] = useState<InquiryFormErrors>({});
+  const [apiError, setApiError] = useState("");
 
   // ── テキスト入力 ──────────────────────────────────
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -85,18 +88,13 @@ export function useInquiry() {
 
     if (Object.keys(newErrors).length > 0) {
       const fieldOrder: (keyof InquiryFormErrors)[] = ["name", "department", "mail", "title", "urgency", "reason", "approver", "message", "screenshot", "resolution"];
-      const firstErrorKey = fieldOrder.find((key) => newErrors[key]);
-      if (firstErrorKey) {
-        setTimeout(() => {
-          const el = document.getElementById(`field-${firstErrorKey}`);
-          el?.scrollIntoView({ behavior: "smooth", block: "center" });
-          el?.focus();
-        }, 0);
-      }
+      focusFirstError(fieldOrder, newErrors); // ✅ formUtils を使用
       return;
     }
 
     setStatus("loading");
+    setApiError("");
+
     const data = new FormData();
     Object.entries(form).forEach(([key, val]) => data.append(key, val));
     files.forEach((f) => data.append("files", f));
@@ -108,11 +106,11 @@ export function useInquiry() {
       if (json.status === "ok") {
         setStatus("done");
       } else {
-        setErrors({ resolution: json.message });
+        setApiError(json.message ?? "エラーが発生しました");
         setStatus("idle");
       }
     } catch {
-      setErrors({ resolution: "通信エラーが発生しました" });
+      setApiError("通信エラーが発生しました");
       setStatus("idle");
     }
   };
@@ -124,6 +122,7 @@ export function useInquiry() {
     setScreenshots([]);
     setScreenshotUrls([]);
     setErrors({});
+    setApiError("");
     setStatus("idle");
   };
 
@@ -139,6 +138,7 @@ export function useInquiry() {
     status,
     isDragging,
     errors,
+    apiError,
     hasInput,
     handleChange,
     handleFileChange,

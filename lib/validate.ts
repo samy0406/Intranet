@@ -2,6 +2,7 @@
 // バリデーション関数
 // ================================================
 import { InquiryFormData, InquiryFormErrors } from "@/types/inquiry";
+import { validateMail } from "@/lib/formUtils";
 
 export function validateInquiryForm(form: InquiryFormData, screenshot: File | null): InquiryFormErrors {
   // エラーを入れるオブジェクト（最初は空）
@@ -19,11 +20,8 @@ export function validateInquiryForm(form: InquiryFormData, screenshot: File | nu
     errors.department = "部署を入力してください";
   }
 
-  if (!form.mail.trim()) {
-    errors.mail = "メールアドレスを入力してください";
-  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.mail)) {
-    errors.mail = "正しい形式で入力してください";
-  }
+  const mailError = validateMail(form.mail);
+  if (mailError) errors.mail = mailError;
 
   if (!form.title.trim()) {
     errors.title = "表題を入力してください";

@@ -1,3 +1,4 @@
+// hooks\useAccountUnlockStatus.ts
 import { useState, ChangeEvent, FormEvent } from "react";
 
 // ── 型定義 ──────────────────────────────────────────

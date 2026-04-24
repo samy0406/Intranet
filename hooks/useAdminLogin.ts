@@ -1,3 +1,4 @@
+// hooks\useAdminLogin.ts
 import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
@@ -20,14 +21,11 @@ export function useAdminLogin() {
       });
 
       if (res.ok) {
-        console.log("✅ ログイン成功 → push開始");
         router.refresh();
         router.push("/admin/inquiries");
-        console.log("✅ push呼び出し完了");
       } else {
         const body = await res.json();
-        console.log("❌ ログイン失敗 status:", res.status, body);
-        setError("パスワードが違います");
+        setError(body.message ?? "パスワードが違います");
       }
     } catch {
       setError("通信エラーが発生しました");

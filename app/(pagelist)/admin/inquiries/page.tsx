@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useAdminInquiries, InquiryStatus, INQUIRY_CATEGORIES, SortKey } from "@/hooks/useAdminInquiries";
+import { useAdminInquiries, InquiryStatus, SortKey } from "@/hooks/useAdminInquiries";
+import { INQUIRY_CATEGORIES } from "@/lib/constants";
 
 // ── スタイル定数 ────────────────────────────────────────
 export const STATUS_STYLE: Record<InquiryStatus, string> = {
@@ -25,7 +26,8 @@ const SortIcon = ({ k, sortKey, sortOrder }: { k: SortKey; sortKey: SortKey; sor
 };
 
 export default function InquiriesPage() {
-  const { inquiries, error, sortKey, sortOrder, displayedInquiries, hasFilter, filterUrgency, filterStatuses, filterCategory, filterDateFrom, filterDateTo, openStatusId, setFilterUrgency, setFilterCategory, setFilterDateFrom, setFilterDateTo, toggleStatus, resetFilters, handleSort, handleStatusChange, setOpenStatusId, router } = useAdminInquiries();
+  const { inquiries, error, statusError, sortKey, sortOrder, displayedInquiries, hasFilter, filterUrgency, filterStatuses, filterCategory, filterDateFrom, filterDateTo, openStatusId, setFilterUrgency, setFilterCategory, setFilterDateFrom, setFilterDateTo, toggleStatus, resetFilters, handleSort, handleStatusChange, setOpenStatusId, router } =
+    useAdminInquiries();
 
   // ── ローディング ────────────────────────────────────
   if (inquiries === null && !error) {
@@ -59,6 +61,9 @@ export default function InquiriesPage() {
             全 <span className="font-semibold text-slate-600">{inquiries?.length ?? 0}</span> 件<span className="ml-3 text-xs">（行クリックで詳細・対応記録の入力ができます）</span>
           </p>
         </div>
+
+        {/* ✅ ステータス更新エラーバナー */}
+        {statusError && <div className="mb-4 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm">⚠ {statusError}</div>}
 
         {/* フィルター */}
         <div className="flex flex-wrap gap-3 mb-4">

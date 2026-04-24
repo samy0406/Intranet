@@ -13,8 +13,8 @@ export async function GET(_request: NextRequest, context: { params: Promise<{ id
     }
     return NextResponse.json(inquiry);
   } catch (error) {
-    const msg = error instanceof Error ? error.message : "サーバーエラー";
-    return NextResponse.json({ error: msg }, { status: 500 });
+    const message = error instanceof Error ? error.message : "サーバーエラー";
+    return NextResponse.json({ status: "error", message }, { status: 500 });
   }
 }
 
@@ -34,7 +34,7 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     // ── パターンB: 完了処理 ──────────────────────────────
     if (body.action === "close") {
       if (!body.personInCharge) {
-        return NextResponse.json({ error: "対応者名（personInCharge）は必須です" }, { status: 400 });
+        return NextResponse.json({ status: "error", message: "対応者名（personInCharge）は必須です" }, { status: 400 });
       }
       await closeInquiry(Number(id), body.personInCharge, body.responseDetail ?? "", body.inquiryCategory ?? "");
       return NextResponse.json({ status: "ok" });
@@ -56,7 +56,7 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     await updateInquiryField(Number(id), column, body.value ?? "");
     return NextResponse.json({ status: "ok" });
   } catch (error) {
-    const msg = error instanceof Error ? error.message : "サーバーエラー";
-    return NextResponse.json({ error: msg }, { status: 500 });
+    const message = error instanceof Error ? error.message : "サーバーエラー";
+    return NextResponse.json({ status: "error", message }, { status: 500 });
   }
 }

@@ -1,3 +1,4 @@
+// hooks\useStorageExtensionStatus.ts
 import { useState, ChangeEvent, FormEvent } from "react";
 
 // ── 型定義 ──────────────────────────────────────────
@@ -9,6 +10,7 @@ export type Status = "idle" | "loading";
 export function useStorageExtensionStatus() {
   const [form, setForm] = useState<SearchForm>({ itemCode: "", lotNo: "" });
   const [errors, setErrors] = useState<SearchErrors>({});
+  const [apiError, setApiError] = useState("");
   const [status, setStatus] = useState<Status>("idle");
   const [results, setResults] = useState<MatchedItem[] | null>(null);
   // null = まだ検索していない
@@ -19,6 +21,7 @@ export function useStorageExtensionStatus() {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
     setResults(null);
     setErrors({});
+    setApiError("");
   };
 
   const handleSearch = async (e: FormEvent<HTMLFormElement>) => {
@@ -31,23 +34,24 @@ export function useStorageExtensionStatus() {
     if (Object.keys(newErrors).length > 0) return;
 
     setStatus("loading");
+    setApiError("");
     try {
       const params = new URLSearchParams({ itemCode: form.itemCode, lotNo: form.lotNo });
       const res = await fetch(`/api/storage-extension/status?${params}`);
       const json = await res.json();
 
       if (!res.ok) {
-        setErrors({ lotNo: json.message ?? "エラーが発生しました" });
+        setApiError(json.message ?? "エラーが発生しました");
         return;
       }
 
       setResults(json.items);
     } catch {
-      setErrors({ lotNo: "通信エラーが発生しました" });
+      setApiError("通信エラーが発生しました");
     } finally {
       setStatus("idle");
     }
   };
 
-  return { form, errors, status, results, handleChange, handleSearch };
+  return { form, errors, apiError, status, results, handleChange, handleSearch };
 }

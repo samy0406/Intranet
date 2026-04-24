@@ -30,8 +30,6 @@ export type AdminFields = {
 };
 
 // ── 問い合わせカテゴリの選択肢 ────────────────────────
-export const INQUIRY_CATEGORIES = ["データ修正", "操作方法・使い方", "システム障害・エラー", "帳票・出力", "マスタ設定", "外部連携", "仕様確認", "その他"];
-
 export function useAdminInquiryDetail() {
   const params = useParams();
   const router = useRouter();
@@ -39,6 +37,7 @@ export function useAdminInquiryDetail() {
 
   const [inquiry, setInquiry] = useState<Inquiry | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string>("");
   const [adminFields, setAdminFields] = useState<AdminFields>({
     personInCharge: "",
     responseDetail: "",
@@ -70,6 +69,7 @@ export function useAdminInquiryDetail() {
   // ── 個別フィールド自動保存（onBlur用） ────────────
   const handleSave = async (fieldName: keyof AdminFields, value: string) => {
     setSaveStatus("saving");
+    setSaveError("");
     setAdminFields((prev) => ({ ...prev, [fieldName]: value }));
     try {
       const res = await fetch(`/api/admin/inquiries/${id}`, {
@@ -77,19 +77,20 @@ export function useAdminInquiryDetail() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ field: fieldName, value }),
       });
-      if (!res.ok) throw new Error("保存失敗");
+      if (!res.ok) throw new Error("保存に失敗しました");
       setSaveStatus("saved");
       setTimeout(() => setSaveStatus("idle"), 2000);
     } catch {
       setSaveStatus("idle");
-      alert("保存に失敗しました");
+      setSaveError("保存に失敗しました。再度お試しください。");
     }
   };
 
   // ── 完了処理 ──────────────────────────────────────
   const handleClose = async () => {
+    setSaveError("");
     if (!adminFields.personInCharge) {
-      alert("対応者名を入力してください");
+      setSaveError("対応者名を入力してください");
       return;
     }
     if (!confirm("この問い合わせを完了にしますか？")) return;
@@ -111,7 +112,7 @@ export function useAdminInquiryDetail() {
       const updated = await fetch(`/api/admin/inquiries/${id}`).then((r) => r.json());
       setInquiry(updated);
     } catch (err) {
-      alert(err instanceof Error ? err.message : "エラーが発生しました");
+      setSaveError(err instanceof Error ? err.message : "エラーが発生しました");
     } finally {
       setIsClosing(false);
     }
@@ -123,6 +124,7 @@ export function useAdminInquiryDetail() {
     id,
     inquiry,
     error,
+    saveError,
     adminFields,
     saveStatus,
     isClosing,

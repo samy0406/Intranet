@@ -1,4 +1,6 @@
+// hooks\useInquiryStatus.ts
 import { useState, ChangeEvent, FormEvent } from "react";
+import { validateMail } from "@/lib/formUtils";
 
 // ── 型定義 ──────────────────────────────────────────
 export type InquiryResult = {
@@ -34,12 +36,9 @@ export function useInquiryStatus() {
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    if (!mail) {
-      setMailError("メールアドレスを入力してください");
-      return;
-    }
-    if (!mail.includes("@")) {
-      setMailError("正しいメールアドレスを入力してください");
+    const error = validateMail(mail);
+    if (error) {
+      setMailError(error);
       return;
     }
     setMailError("");
