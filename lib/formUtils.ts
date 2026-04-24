@@ -9,8 +9,9 @@
  *   if (mailError) errors.mail = mailError;
  */
 export function validateMail(mail: string): string | undefined {
-  if (!mail.trim()) return "メールアドレスを入力してください";
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail)) return "正しい形式で入力してください";
+  const trimmed = mail.trim();
+  if (!trimmed) return "メールアドレスを入力してください";
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) return "正しい形式で入力してください";
   return undefined;
 }
 

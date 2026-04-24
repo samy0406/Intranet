@@ -35,18 +35,28 @@ export function useJudgmentCancelStatus() {
 
     setStatus("loading");
     setApiError("");
+    setResults(null);
     try {
       const params = new URLSearchParams({ itemCode: form.itemCode, lotNo: form.lotNo });
       const res = await fetch(`/api/judgment-cancel/status?${params}`);
-      const json = await res.json();
 
       if (!res.ok) {
-        setApiError(json.message ?? "エラーが発生しました");
+        setResults([]);
+        let errorMessage = "エラーが発生しました";
+        try {
+          const json = await res.json();
+          errorMessage = json.message ?? errorMessage;
+        } catch {
+          // JSON parse failed, use default error message
+        }
+        setApiError(errorMessage);
         return;
       }
 
+      const json = await res.json();
       setResults(json.items);
     } catch {
+      setResults([]);
       setApiError("通信エラーが発生しました");
     } finally {
       setStatus("idle");

@@ -109,7 +109,9 @@ export function useAdminInquiryDetail() {
       });
       if (!res.ok) throw new Error("完了処理に失敗しました");
 
-      const updated = await fetch(`/api/admin/inquiries/${id}`).then((r) => r.json());
+      const refetchRes = await fetch(`/api/admin/inquiries/${id}`);
+      if (!refetchRes.ok) throw new Error("更新後のデータ取得に失敗しました");
+      const updated = await refetchRes.json();
       setInquiry(updated);
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : "エラーが発生しました");

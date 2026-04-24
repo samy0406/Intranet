@@ -195,28 +195,36 @@ export async function findAccountUnlock(accountCode: string): Promise<boolean> {
 }
 
 // 解除申請用：対象のレコードを削除する
-export async function deleteAccountUnlock(accountCode: string): Promise<void> {
-  const conn = await getConnection();
+export async function deleteAccountUnlock(accountCode: string, conn?: oracledb.Connection): Promise<void> {
+  const connection = conn ?? (await getConnection());
   try {
-    await conn.execute(`DELETE FROM T_LOGIN WHERE USER_ID = :accountCode`, { accountCode });
-    await conn.commit();
+    await connection.execute(`DELETE FROM T_LOGIN WHERE USER_ID = :accountCode`, { accountCode });
+    if (!conn) {
+      await connection.commit();
+    }
   } finally {
-    await conn.close();
+    if (!conn) {
+      await connection.close();
+    }
   }
 }
 
 // W_TBL_UNLOCK にロック解除記録をINSERTする
-export async function insertUnlockRecord(accountCode: string, mailaddress: string): Promise<void> {
-  const conn = await getConnection();
+export async function insertUnlockRecord(accountCode: string, mailaddress: string, conn?: oracledb.Connection): Promise<void> {
+  const connection = conn ?? (await getConnection());
   try {
-    await conn.execute(
+    await connection.execute(
       `INSERT INTO MCTEST1.W_TBL_UNLOCK (UNLOCK_DATE, USER_ID, MAILADDRESS)
        VALUES (SYSDATE, :accountCode, :mailaddress)`,
       { accountCode, mailaddress },
     );
-    await conn.commit();
+    if (!conn) {
+      await connection.commit();
+    }
   } finally {
-    await conn.close();
+    if (!conn) {
+      await connection.close();
+    }
   }
 }
 

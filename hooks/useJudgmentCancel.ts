@@ -55,6 +55,7 @@ export function useJudgmentCancel() {
 
   const handleConfirmOpen = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setApiError("");
     const newErrors = validate(form);
     setErrors(newErrors);
 
@@ -62,7 +63,6 @@ export function useJudgmentCancel() {
       focusFirstError(["mail", "itemCode", "lotNo"], newErrors);
       return;
     }
-
     let result = searchResult;
     if (!result) {
       setSearching(true);

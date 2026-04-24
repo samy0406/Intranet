@@ -6,12 +6,15 @@ export async function POST(request: NextRequest) {
   try {
     // await = データが届くまで待つ
     const data = await request.formData();
-    const mail = data.get("mail") as string;
-    const accountCode = data.get("accountCode") as string;
+    const mailValue = data.get("mail");
+    const accountCodeValue = data.get("accountCode");
 
-    if (!mail || !accountCode) {
+    if (mailValue === null || typeof mailValue !== "string" || accountCodeValue === null || typeof accountCodeValue !== "string") {
       return NextResponse.json({ status: "error", message: "必須項目を入力してください" }, { status: 400 });
     }
+
+    const mail = mailValue;
+    const accountCode = accountCodeValue;
 
     // 存在確認
     const exists = await findAccountUnlock(accountCode);

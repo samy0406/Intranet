@@ -38,13 +38,22 @@ export function useStorageExtensionStatus() {
     try {
       const params = new URLSearchParams({ itemCode: form.itemCode, lotNo: form.lotNo });
       const res = await fetch(`/api/storage-extension/status?${params}`);
-      const json = await res.json();
 
       if (!res.ok) {
-        setApiError(json.message ?? "エラーが発生しました");
+        let message = "エラーが発生しました";
+        try {
+          const json = await res.json();
+          if (typeof json.message === "string") {
+            message = json.message;
+          }
+        } catch {
+          // Response body isn't valid JSON, use default message
+        }
+        setApiError(message);
         return;
       }
 
+      const json = await res.json();
       setResults(json.items);
     } catch {
       setApiError("通信エラーが発生しました");
