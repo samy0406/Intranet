@@ -1,37 +1,41 @@
-// master-up/route.ts
+// app/api/master-up/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { findAccountUnlock, deleteAccountUnlock, insertUnlockRecord } from "@/lib/db";
+import { checkMasterHin, copyMasterHin, saveMasterUpRequest } from "@/lib/db";
 
-export async function POST(request: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
-    // await = データが届くまで待つ
-    const data = await request.formData();
-    const mailValue = data.get("mail");
-    const accountCodeValue = data.get("accountCode");
+    const body = await req.json();
+    const { itemCode, mail } = body as { itemCode?: string; mail?: string };
 
-    if (mailValue === null || typeof mailValue !== "string" || accountCodeValue === null || typeof accountCodeValue !== "string") {
-      return NextResponse.json({ status: "error", message: "必須項目を入力してください" }, { status: 400 });
+    // ── サーバー側バリデーション ────────────────────
+    if (!itemCode || itemCode.trim() === "") {
+      return NextResponse.json({ message: "品目コードは必須です" }, { status: 400 });
+    }
+    if (!mail || mail.trim() === "") {
+      return NextResponse.json({ message: "メールアドレスは必須です" }, { status: 400 });
     }
 
-    const mail = mailValue;
-    const accountCode = accountCodeValue;
+    const code = itemCode.trim();
+    const address = mail.trim();
 
-    // 存在確認
-    const exists = await findAccountUnlock(accountCode);
-
-    if (!exists) {
-      // T_LOGIN にない = 現在ログインされていない
-      return NextResponse.json({ status: "error", message: "現在ログインされていません" }, { status: 400 });
+    // ── ① 品目コードの存在チェック（CHECK_MASTER_HIN.SQL相当） ──
+    const item = await checkMasterHin(code);
+    if (!item) {
+      return NextResponse.json({ message: `品目コード「${code}」はマスタ登録環境に存在しません。品目コードをご確認ください。` }, { status: 404 });
     }
 
-    // T_LOGIN から削除（ロック解除）
-    await deleteAccountUnlock(accountCode);
-    // W_TBL_UNLOCK に記録を追加
-    await insertUnlockRecord(accountCode, mail);
+    // ── ② マスタコピー実行（COPY_MASTER_HIN.SQL相当） ──────────
+    await copyMasterHin(code);
 
-    return NextResponse.json({ status: "ok", message: "解除しました" });
-  } catch (error) {
-    console.error("DB error:", error);
-    return NextResponse.json({ status: "error", message: "サーバーエラーが発生しました" }, { status: 500 });
+    // ── ③ 申請ログ保存（W_TBL_MASTER_UP_REQ） ───────────────────
+    await saveMasterUpRequest(code, address);
+
+    return NextResponse.json({
+      message: "マスタコピーが完了しました",
+      itemName: item.itemName, // 完了画面で品名を表示するために返す
+    });
+  } catch (err) {
+    console.error("POST /api/master-up エラー:", err);
+    return NextResponse.json({ message: "サーバーエラーが発生しました。管理者に連絡してください。" }, { status: 500 });
   }
 }

@@ -2,6 +2,8 @@
 // 型定義ファイル（TypeScriptの「設計図」）
 // ================================================
 
+// types\inquiry.ts
+
 // 緊急度の選択肢
 export const URGENCY_OPTIONS = ["至急", "高", "中", "低"] as const;
 // as const = この配列の値を変更不可にする（型の精度が上がる）

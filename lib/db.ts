@@ -558,5 +558,124 @@ export async function getJudgmentStatusForCheck(itemCode: string, lotNo: string)
 }
 
 // ════════════════════════════════════════════════════
-// マスタup
+// マスタアップ申請
 // ════════════════════════════════════════════════════
+
+export async function checkMasterHin(itemCode: string): Promise<{ itemCode: string; itemName: string } | null> {
+  const conn = await getConnection();
+  try {
+    const result = await conn.execute(
+      `SELECT 品目コード AS "itemCode", 品名 AS "itemName"
+       FROM ${SRC_SCHEMA}.M_HINMO
+       WHERE 品目コード = :itemCode`,
+      { itemCode },
+      { outFormat: oracledb.OUT_FORMAT_OBJECT },
+    );
+    const rows = result.rows as Record<string, string>[];
+    return rows.length > 0 ? rows[0] : null;
+  } finally {
+    await conn.close();
+  }
+}
+
+/**
+ * COPY_MASTER_HIN.SQL + DEL_INS_HIN.SQL / DEL_INS_HIN_OYA.SQL 相当
+ * マスタ登録環境(SRC_SCHEMA)から本番環境(DST_SCHEMA)へ
+ * 品目系マスタを全テーブル一括コピーする（1トランザクション）
+ */
+export async function copyMasterHin(itemCode: string): Promise<void> {
+  const conn = await getConnection();
+
+  // DEL_INS_HIN.SQL 相当テーブル（品目コード列で絞り込み）
+  const hinTables = [
+    "AM_HINBAN",
+    "AM_HINBANZK",
+    "AM_HINMOSKT",
+    "AM_HSYUKOTB",
+    "AM_HSYUKOTBR",
+    "IM_FILENAME",
+    "M_HINMO",
+    "M_HINMOHB",
+    "M_HINMOHK",
+    "M_HINMOHKR",
+    "M_HINMOK",
+    "M_HINMOKB",
+    "M_HINMOKBR",
+    "M_HINMOKR",
+    "M_HINMOR",
+    "M_HINMOS",
+    "M_HINMOSK",
+    "M_HINMOSKR",
+    "M_HINMOSR",
+    "M_HINMOYKJ",
+    "M_HINMOYKJR",
+    "M_HINMOZK",
+    "M_HINMOZKR",
+    "M_HMAKER",
+    "M_HMAKERR",
+    "M_HTANKA",
+    "M_NEBIKI",
+    "M_ROUTE",
+    "M_ROUTER",
+    "M_SKTANKA",
+    "M_STANKA",
+    "M_TOKUIH",
+  ];
+
+  // DEL_INS_HIN_OYA.SQL 相当テーブル（BOM親テーブル）
+  const oyaTables = ["AM_GBOM", "AM_GBOMR", "M_BOM", "M_BOMR"];
+
+  try {
+    // 通常テーブル: DST_SCHEMAの既存レコードを削除→SRC_SCHEMAからコピー
+    for (const table of hinTables) {
+      await conn.execute(`DELETE FROM ${DST_SCHEMA}.${table} WHERE 品目コード = :itemCode`, { itemCode });
+      await conn.execute(
+        `INSERT INTO ${DST_SCHEMA}.${table}
+         SELECT * FROM ${SRC_SCHEMA}.${table}
+         WHERE 品目コード = :itemCode`,
+        { itemCode },
+      );
+    }
+
+    // BOM親テーブル: 同上（DEL_INS_HIN_OYA.SQL の内容が判明次第修正してください）
+    for (const table of oyaTables) {
+      await conn.execute(`DELETE FROM ${DST_SCHEMA}.${table} WHERE 親品目コード = :itemCode`, { itemCode });
+      await conn.execute(
+        `INSERT INTO ${DST_SCHEMA}.${table}
+         SELECT * FROM ${SRC_SCHEMA}.${table}
+         WHERE 親品目コード = :itemCode`,
+        { itemCode },
+      );
+    }
+
+    // 全テーブルの処理が成功してから1回だけコミット
+    await conn.commit();
+  } catch (err) {
+    await conn.rollback();
+    console.error("copyMasterHin エラー:", err);
+    throw err;
+  } finally {
+    await conn.close();
+  }
+}
+
+/** 申請ログをW_TBL_MASTER_UP_REQに保存する */
+export async function saveMasterUpRequest(itemCd: string, mailaddress: string): Promise<void> {
+  const conn = await getConnection();
+  try {
+    await conn.execute(
+      `INSERT INTO MCTEST1.W_TBL_MASTER_UP_REQ
+         (HINMO_CD, MAILADDRESS)
+       VALUES
+         (:itemCd, :mailaddress)`,
+      { itemCd, mailaddress },
+    );
+    await conn.commit();
+  } catch (err) {
+    await conn.rollback();
+    console.error("saveMasterUpRequest エラー:", err);
+    throw err;
+  } finally {
+    await conn.close();
+  }
+}

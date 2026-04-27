@@ -1,6 +1,6 @@
 "use client";
 
-import { InquiryFormErrors, URGENCY_OPTIONS } from "@/types/inquiry";
+import { URGENCY_OPTIONS } from "@/types/inquiry";
 import { Field } from "@/components/Field";
 import { ScreenshotInput } from "@/components/ScreenshotInput";
 import { FileUpload } from "@/components/FileUpload";
@@ -15,7 +15,7 @@ const URGENCY_COLOR: Record<string, string> = {
 };
 
 export default function HomePage() {
-  const { form, files, screenshotUrls, status, isDragging, errors, hasInput, handleChange, handleFileChange, handleDragOver, handleDragLeave, handleDrop, handlePaste, clearScreenshot, handleSubmit, handleReset, formatSize, setForm } = useInquiry();
+  const { form, files, screenshotUrls, status, isDragging, errors, hasInput, handleChange, handleFileChange, handleDragOver, handleDragLeave, handleDrop, handlePaste, clearScreenshot, handleSubmit, handleReset, formatSize, setForm, removeFile } = useInquiry();
 
   // ── 送信完了画面 ──────────────────────────────────
   if (status === "done") {
@@ -122,7 +122,7 @@ export default function HomePage() {
             <textarea name="resolution" value={form.resolution} onChange={handleChange} rows={6} placeholder="例：〇〇画面の△△項目を「×××」から「○○○」に修正していただきたい。" className={`${inputClass} resize-none`} />
           </Field>
 
-          <FileUpload files={files} isDragging={isDragging} onFileChange={handleFileChange} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop} onClear={(index) => setFiles((prev) => prev.filter((_, i) => i !== index))} formatSize={formatSize} />
+          <FileUpload files={files} isDragging={isDragging} onFileChange={handleFileChange} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop} onClear={removeFile} formatSize={formatSize} />
 
           <button
             type="submit"

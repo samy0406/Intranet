@@ -80,6 +80,11 @@ export function useInquiry() {
     setScreenshotUrls((prev) => prev.filter((_, i) => i !== index));
   };
 
+  // ── ファイル削除 ──────────────────────────────────
+  const removeFile = (index: number) => {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
   // ── フォーム送信 ──────────────────────────────────
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -151,5 +156,6 @@ export function useInquiry() {
     handleReset,
     formatSize,
     setForm,
+    removeFile,
   };
 }

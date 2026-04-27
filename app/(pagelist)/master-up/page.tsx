@@ -1,10 +1,12 @@
+// app\(pagelist)\master-up\page.tsx
+
 "use client";
 
 import { BackToHomeButton } from "@/components/BackToHomeButton";
 import { useMasterUp } from "@/hooks/useMasterUp";
 
 export default function MasterUpPage() {
-  const { form, errors, status, hasInput, handleChange, handleSubmit, router } = useMasterUp();
+  const { form, errors, apiError, itemName, status, hasInput, handleChange, handleSubmit, router } = useMasterUp();
 
   // ── 送信完了画面 ──────────────────────────────────
   if (status === "done") {
@@ -15,6 +17,11 @@ export default function MasterUpPage() {
             <span className="text-2xl">✏️</span>
           </div>
           <h2 className="text-white font-bold text-lg mb-2">マスタupが完了しました</h2>
+          {itemName && (
+            <p className="text-amber-400 text-sm font-mono mb-1">
+              {form.itemCode}　{itemName}
+            </p>
+          )}
           <p className="text-slate-400 text-sm mb-8">MCで正しく表示されるかご確認ください。</p>
           <button
             onClick={() => router.push("/")}
@@ -47,6 +54,9 @@ export default function MasterUpPage() {
             </div>
           </div>
 
+          {/* APIエラー表示（品目コード不存在・サーバーエラーなど） */}
+          {apiError && <div className="mb-5 px-4 py-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-sm">⚠ {apiError}</div>}
+
           {/* フォーム */}
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* メールアドレス */}
@@ -75,7 +85,7 @@ export default function MasterUpPage() {
                 text-white font-bold text-sm transition-all active:scale-95
                 disabled:opacity-60 disabled:cursor-not-allowed mt-2"
             >
-              {status === "loading" ? "送信中..." : "申請する →"}
+              {status === "loading" ? "処理中..." : "申請する →"}
             </button>
           </form>
         </div>

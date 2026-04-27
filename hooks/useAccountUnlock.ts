@@ -1,3 +1,6 @@
+// hooks/useAccountUnlock.ts
+"use client";
+
 import { useState, ChangeEvent, FormEvent } from "react";
 import { validateMail, focusFirstError } from "@/lib/formUtils";
 import { useRouter } from "next/navigation";

@@ -1,13 +1,14 @@
+// hooks/useMasterUp.ts
+"use client";
+
 import { useState, ChangeEvent, FormEvent } from "react";
 import { validateMail, focusFirstError } from "@/lib/formUtils";
 import { useRouter } from "next/navigation";
 
-// ── 型定義 ──────────────────────────────────────────
 export type MasterUpForm = { mail: string; itemCode: string };
 export type MasterUpErrors = { mail?: string; itemCode?: string };
 export type Status = "idle" | "loading" | "done";
 
-// ── バリデーション（純粋関数） ────────────────────────
 function validate(form: MasterUpForm): MasterUpErrors {
   const errors: MasterUpErrors = {};
   const mailError = validateMail(form.mail);
@@ -20,6 +21,7 @@ export function useMasterUp() {
   const [form, setForm] = useState<MasterUpForm>({ mail: "", itemCode: "" });
   const [errors, setErrors] = useState<MasterUpErrors>({});
   const [apiError, setApiError] = useState("");
+  const [itemName, setItemName] = useState(""); // APIから返ってくる品名
   const [status, setStatus] = useState<Status>("idle");
   const router = useRouter();
 
@@ -40,13 +42,14 @@ export function useMasterUp() {
     setStatus("loading");
     setApiError("");
     try {
-      const res = await fetch("/api/master", {
+      const res = await fetch("/api/master-up", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
       const json = await res.json();
-      if (json.status === "ok") {
+      if (res.ok) {
+        setItemName(json.itemName ?? "");
         setStatus("done");
       } else {
         setApiError(json.message ?? "エラーが発生しました");
@@ -58,5 +61,5 @@ export function useMasterUp() {
     }
   };
 
-  return { form, errors, apiError, status, hasInput, handleChange, handleSubmit, router };
+  return { form, errors, apiError, itemName, status, hasInput, handleChange, handleSubmit, router };
 }
