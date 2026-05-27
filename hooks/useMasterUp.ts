@@ -21,7 +21,8 @@ export function useMasterUp() {
   const [form, setForm] = useState<MasterUpForm>({ mail: "", itemCode: "" });
   const [errors, setErrors] = useState<MasterUpErrors>({});
   const [apiError, setApiError] = useState("");
-  const [itemName, setItemName] = useState(""); // APIから返ってくる品名
+  const [oraCode, setOraCode] = useState(""); // ORAエラーコード
+  const [itemName, setItemName] = useState("");
   const [status, setStatus] = useState<Status>("idle");
   const router = useRouter();
 
@@ -41,6 +42,7 @@ export function useMasterUp() {
 
     setStatus("loading");
     setApiError("");
+    setOraCode("");
     try {
       const res = await fetch("/api/master-up", {
         method: "POST",
@@ -53,6 +55,7 @@ export function useMasterUp() {
         setStatus("done");
       } else {
         setApiError(json.message ?? "エラーが発生しました");
+        setOraCode(json.oraCode ?? ""); // ORAエラーコードを保存
         setStatus("idle");
       }
     } catch {
@@ -61,5 +64,5 @@ export function useMasterUp() {
     }
   };
 
-  return { form, errors, apiError, itemName, status, hasInput, handleChange, handleSubmit, router };
+  return { form, errors, apiError, oraCode, itemName, status, hasInput, handleChange, handleSubmit, router };
 }

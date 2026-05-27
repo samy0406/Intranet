@@ -1,5 +1,6 @@
 // lib/db.ts
 import oracledb from "oracledb";
+import { writeErrorLog } from "@/lib/logger";
 
 oracledb.initOracleClient({
   libDir: process.env.ORACLE_CLIENT_PATH,
@@ -10,6 +11,10 @@ const DB_CONFIG: oracledb.ConnectionAttributes = {
   password: process.env.ORACLE_PASSWORD,
   connectString: process.env.ORACLE_CONN_STRING,
 };
+
+// コピー元（マスタ登録環境）とコピー先（本番環境）のスキーマ
+const SRC_SCHEMA = process.env.ORACLE_SRC_SCHEMA ?? "MCFP"; // CHECK_MASTER_HIN / DEL_INS_HIN のコピー元
+const DST_SCHEMA = process.env.ORACLE_DST_SCHEMA ?? "MCFR"; // DEL_INS_HIN のコピー先
 
 export async function getConnection(): Promise<oracledb.Connection> {
   return await oracledb.getConnection(DB_CONFIG);
@@ -563,16 +568,17 @@ export async function getJudgmentStatusForCheck(itemCode: string, lotNo: string)
 
 export async function checkMasterHin(itemCode: string): Promise<{ itemCode: string; itemName: string } | null> {
   const conn = await getConnection();
+  const sql = `SELECT 品目コード AS "itemCode", 品名 AS "itemName"
+  FROM ${SRC_SCHEMA}.M_HINMO
+  WHERE 品目コード = :itemCode
+  FOR UPDATE NOWAIT`;
   try {
-    const result = await conn.execute(
-      `SELECT 品目コード AS "itemCode", 品名 AS "itemName"
-       FROM ${SRC_SCHEMA}.M_HINMO
-       WHERE 品目コード = :itemCode`,
-      { itemCode },
-      { outFormat: oracledb.OUT_FORMAT_OBJECT },
-    );
-    const rows = result.rows as Record<string, string>[];
+    const result = await conn.execute(sql, { itemCode }, { outFormat: oracledb.OUT_FORMAT_OBJECT });
+    const rows = result.rows as { itemCode: string; itemName: string }[];
     return rows.length > 0 ? rows[0] : null;
+  } catch (err) {
+    writeErrorLog({ func: "checkMasterHin", itemCode, sql, err });
+    throw err;
   } finally {
     await conn.close();
   }
@@ -628,33 +634,55 @@ export async function copyMasterHin(itemCode: string): Promise<void> {
   try {
     // 通常テーブル: DST_SCHEMAの既存レコードを削除→SRC_SCHEMAからコピー
     for (const table of hinTables) {
-      await conn.execute(`DELETE FROM ${DST_SCHEMA}.${table} WHERE 品目コード = :itemCode`, { itemCode });
-      await conn.execute(
-        `INSERT INTO ${DST_SCHEMA}.${table}
-         SELECT * FROM ${SRC_SCHEMA}.${table}
-         WHERE 品目コード = :itemCode`,
-        { itemCode },
-      );
+      // 実行するSQL文を変数に入れてからexecute・ログ両方で使い回す
+      const deleteSql = `DELETE FROM ${DST_SCHEMA}.${table} WHERE 品目コード = :itemCode`;
+      const insertSql = `INSERT INTO ${DST_SCHEMA}.${table} SELECT * FROM ${SRC_SCHEMA}.${table} WHERE 品目コード = :itemCode`;
+
+      try {
+        await conn.execute(deleteSql, { itemCode });
+      } catch (err) {
+        writeErrorLog({ func: "copyMasterHin", table, itemCode, sql: deleteSql, err });
+        throw err;
+      }
+
+      try {
+        await conn.execute(insertSql, { itemCode });
+      } catch (err) {
+        writeErrorLog({ func: "copyMasterHin", table, itemCode, sql: insertSql, err });
+        throw err;
+      }
     }
 
-    // BOM親テーブル: 同上（DEL_INS_HIN_OYA.SQL の内容が判明次第修正してください）
+    // BOM親テーブル: 同上
     for (const table of oyaTables) {
-      await conn.execute(`DELETE FROM ${DST_SCHEMA}.${table} WHERE 親品目コード = :itemCode`, { itemCode });
-      await conn.execute(
-        `INSERT INTO ${DST_SCHEMA}.${table}
-         SELECT * FROM ${SRC_SCHEMA}.${table}
-         WHERE 親品目コード = :itemCode`,
-        { itemCode },
-      );
+      // 実行するSQL文を変数に入れてからexecute・ログ両方で使い回す
+      const deleteSql = `DELETE FROM ${DST_SCHEMA}.${table} WHERE 親品目コード = :itemCode`;
+      const insertSql = `INSERT INTO ${DST_SCHEMA}.${table} SELECT * FROM ${SRC_SCHEMA}.${table} WHERE 親品目コード = :itemCode`;
+
+      try {
+        await conn.execute(deleteSql, { itemCode });
+      } catch (err) {
+        writeErrorLog({ func: "copyMasterHin", table, itemCode, sql: deleteSql, err });
+        throw err;
+      }
+
+      try {
+        await conn.execute(insertSql, { itemCode });
+      } catch (err) {
+        writeErrorLog({ func: "copyMasterHin", table, itemCode, sql: insertSql, err });
+        throw err;
+      }
     }
 
     // 全テーブルの処理が成功してから1回だけコミット
     await conn.commit();
   } catch (err) {
+    // ❌ どこかで失敗したら全テーブルの変更を巻き戻す
     await conn.rollback();
     console.error("copyMasterHin エラー:", err);
     throw err;
   } finally {
+    // 成功・失敗どちらでも必ずDB接続を閉じる
     await conn.close();
   }
 }
@@ -662,18 +690,13 @@ export async function copyMasterHin(itemCode: string): Promise<void> {
 /** 申請ログをW_TBL_MASTER_UP_REQに保存する */
 export async function saveMasterUpRequest(itemCd: string, mailaddress: string): Promise<void> {
   const conn = await getConnection();
+  const sql = `INSERT INTO MCTEST1.W_TBL_MASTER_UP_REQ (HINMO_CD, MAILADDRESS) VALUES (:itemCd, :mailaddress)`;
   try {
-    await conn.execute(
-      `INSERT INTO MCTEST1.W_TBL_MASTER_UP_REQ
-         (HINMO_CD, MAILADDRESS)
-       VALUES
-         (:itemCd, :mailaddress)`,
-      { itemCd, mailaddress },
-    );
+    await conn.execute(sql, { itemCd, mailaddress });
     await conn.commit();
   } catch (err) {
     await conn.rollback();
-    console.error("saveMasterUpRequest エラー:", err);
+    writeErrorLog({ func: "saveMasterUpRequest", itemCode: itemCd, sql, err });
     throw err;
   } finally {
     await conn.close();

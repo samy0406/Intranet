@@ -6,7 +6,7 @@ import { BackToHomeButton } from "@/components/BackToHomeButton";
 import { useMasterUp } from "@/hooks/useMasterUp";
 
 export default function MasterUpPage() {
-  const { form, errors, apiError, itemName, status, hasInput, handleChange, handleSubmit, router } = useMasterUp();
+  const { form, errors, apiError, oraCode, itemName, status, hasInput, handleChange, handleSubmit, router } = useMasterUp();
 
   // ── 送信完了画面 ──────────────────────────────────
   if (status === "done") {
@@ -54,8 +54,19 @@ export default function MasterUpPage() {
             </div>
           </div>
 
-          {/* APIエラー表示（品目コード不存在・サーバーエラーなど） */}
-          {apiError && <div className="mb-5 px-4 py-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-sm">⚠ {apiError}</div>}
+          {/* エラー表示 */}
+          {apiError && (
+            <div className="mb-5 px-4 py-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-sm space-y-1">
+              <p>⚠ {apiError}</p>
+              {oraCode && (
+                <>
+                  {/* エラーコードを表示：管理者に問い合わせる際にこのコードをお伝えください */}
+                  <p className="text-xs text-rose-300 font-mono">エラーコード：{oraCode}</p>
+                  <p className="text-xs text-slate-400">管理者に連絡する際は上記のエラーコードをお伝えください。</p>
+                </>
+              )}
+            </div>
+          )}
 
           {/* フォーム */}
           <form onSubmit={handleSubmit} className="space-y-5">
