@@ -1,6 +1,6 @@
 "use client";
 
-import { URGENCY_OPTIONS } from "@/types/inquiry";
+import { URGENCY_OPTIONS } from "@/lib/constants";
 import { Field } from "@/components/Field";
 import { ScreenshotInput } from "@/components/ScreenshotInput";
 import { FileUpload } from "@/components/FileUpload";
