@@ -4,12 +4,6 @@
 
 // types\inquiry.ts
 
-// 緊急度の選択肢
-export const URGENCY_OPTIONS = ["至急", "高", "中", "低"] as const;
-// as const = この配列の値を変更不可にする（型の精度が上がる）
-export type UrgencyOption = (typeof URGENCY_OPTIONS)[number];
-// → '至急' | '高' | '中' | '低' という型になる
-
 // 問い合わせフォームの入力データの型
 export type InquiryFormData = {
   name: string; // お名前
@@ -49,3 +43,9 @@ export type Inquiry = InquiryFormData & {
 
 // APIのレスポンス型
 export type ApiResponse = { status: "ok"; message: string } | { status: "error"; message: string };
+
+// ステータスの型
+export type InquiryStatus = "未対応" | "対応中" | "intec対応" | "完了";
+
+// 緊急度の型
+export type UrgencyLevel = "至急" | "高" | "中" | "低";
