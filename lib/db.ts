@@ -679,7 +679,7 @@ export async function copyMasterHin(itemCode: string): Promise<void> {
   } catch (err) {
     // ❌ どこかで失敗したら全テーブルの変更を巻き戻す
     await conn.rollback();
-    console.error("copyMasterHin エラー:", err);
+    writeErrorLog({ func: "copyMasterHin", itemCode, err });
     throw err;
   } finally {
     // 成功・失敗どちらでも必ずDB接続を閉じる
