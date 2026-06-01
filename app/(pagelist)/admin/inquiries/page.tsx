@@ -1,23 +1,11 @@
+// app\(pagelist)\admin\inquiries\page.tsx
+
 "use client";
 
 import Link from "next/link";
 import { useAdminInquiries, InquiryStatus, SortKey } from "@/hooks/useAdminInquiries";
-import { INQUIRY_CATEGORIES } from "@/lib/constants";
-
-// ── スタイル定数 ────────────────────────────────────────
-export const STATUS_STYLE: Record<InquiryStatus, string> = {
-  未対応: "bg-red-100    text-red-700    border border-red-200",
-  対応中: "bg-blue-100   text-blue-700   border border-blue-200",
-  intec対応: "bg-purple-100 text-purple-700 border border-purple-200",
-  完了: "bg-emerald-100 text-emerald-700 border border-emerald-200",
-};
-
-const URGENCY_STYLE: Record<string, string> = {
-  至急: "bg-red-100 text-red-700",
-  高: "bg-orange-100 text-orange-700",
-  中: "bg-yellow-100 text-yellow-700",
-  低: "bg-slate-100 text-slate-500",
-};
+import { INQUIRY_CATEGORIES, URGENCY_STYLE, STATUS_STYLE } from "@/lib/constants";
+import type { UrgencyLevel } from "@/types/inquiry";
 
 // ── ソートアイコン ────────────────────────────────────
 const SortIcon = ({ k, sortKey, sortOrder }: { k: SortKey; sortKey: SortKey; sortOrder: "asc" | "desc" }) => {
@@ -181,7 +169,7 @@ export default function InquiriesPage() {
                       {item.department && <span className="ml-1 text-xs text-slate-400">{item.department}</span>}
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold ${URGENCY_STYLE[item.urgency] ?? "bg-slate-100 text-slate-500"}`}>{item.urgency}</span>
+                      <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-bold ${URGENCY_STYLE[item.urgency as UrgencyLevel] ?? "bg-slate-100 text-slate-500"}`}>{item.urgency}</span>
                     </td>
 
                     {/* ステータス */}
