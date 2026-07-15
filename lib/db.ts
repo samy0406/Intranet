@@ -270,11 +270,12 @@ export async function getHokanKigen(itemCode: string, lotNo: string) {
 }
 
 // ── 保管期限を更新する（UPDATE_HOKAN_KIGEN.sql に相当） ──
-export async function updateHokanKigen(itemCode: string, lotNo: string, newDate: string, mailaddress: string, inspectCnt: string): Promise<void> {
+export async function updateHokanKigen(itemCode: string, lotNo: string, newDate: string, mailaddress: string): Promise<void> {
   const conn = await getConnection();
   try {
     const oldResult = await conn.execute(
-      `SELECT TO_CHAR(保管期限, 'YYYY-MM-DD') AS "oldDate"
+      `SELECT TO_CHAR(保管期限, 'YYYY-MM-DD') AS "oldDate",
+            試験回数 AS "inspectCnt"
        FROM T_SHIKENPLUS
        WHERE 品目コード = :itemCode
          AND ロットＮＯ  = :lotNo
@@ -287,8 +288,17 @@ export async function updateHokanKigen(itemCode: string, lotNo: string, newDate:
       { itemCode, lotNo },
       { outFormat: oracledb.OUT_FORMAT_OBJECT },
     );
-    const oldRows = (oldResult.rows as Record<string, string>[]) ?? [];
-    const oldDate = oldRows.length > 0 ? oldRows[0]["oldDate"] : null;
+    const oldRows = (oldResult.rows as { oldDate: string | null; inspectCnt: number }[]) ?? [];
+    console.log("① SELECT結果:", oldRows);
+    if (oldRows.length === 0) {
+      throw new Error("指定された品目コードとロットＮＯに該当するデータが見つかりません");
+    }
+    const oldDate = oldRows[0].oldDate;
+    const inspectCnt = Number(oldRows[0].inspectCnt);
+
+    if (Number.isNaN(inspectCnt)) {
+      throw new Error("試験回数の取得に失敗しました（SELECT結果にinspectCntが含まれていません）");
+    }
 
     await conn.execute(
       `UPDATE T_SHIKEN
@@ -392,19 +402,28 @@ export async function updateHokanKigen(itemCode: string, lotNo: string, newDate:
       { itemCode, lotNo, newDate },
     );
 
-    await conn.execute(
-      `INSERT INTO MCTEST1.W_TBL_UPDATE_HOKANKIGEN
-         (UPDATE_DATE, MAILADDRESS, HINMO_CD, LOT_NO, OLD_HOKANKIGEN, NEW_HOKANKIGEN, INSPECT_CNT)
-       VALUES
-         (SYSDATE,
-          :mailaddress,
-          :itemCode,
-          :lotNo,
-          TO_DATE(:oldDate, 'YYYY-MM-DD'),
-          TO_DATE(:newDate, 'YYYY-MM-DD'),
-          :inspectCnt)`,
-      { mailaddress, itemCode, lotNo, oldDate, newDate, inspectCnt },
-    );
+    try {
+      await conn.execute(
+        `INSERT INTO MCTEST1.W_TBL_UPDATE_HOKANKIGEN
+          (HINMO_CD, LOT_NO, INSPECT_CNT, NEW_HOKANKIGEN, OLD_HOKANKIGEN, UPDATE_DATE, MAILADDRESS)
+        VALUES
+          (:itemCode,
+            :lotNo,
+            :inspectCnt,
+            TO_DATE(:newDate, 'YYYY-MM-DD'),
+            TO_DATE(:oldDate, 'YYYY-MM-DD'),
+            SYSDATE,
+            :mailaddress)`,
+        { itemCode, lotNo, inspectCnt, newDate, oldDate, mailaddress },
+      );
+    } catch (err) {
+      // 主キーが (HINMO_CD, LOT_NO, INSPECT_CNT, NEW_HOKANKIGEN) のため、
+      // まったく同じ内容の申請が2回目に来ると ORA-00001 になる
+      if ((err as { errorNum?: number }).errorNum === 1) {
+        throw new Error("同じ品目・ロット・試験回数・新保管期限の更新記録が既に存在します（重複申請）");
+      }
+      throw err;
+    }
 
     await conn.commit();
   } catch (err) {
