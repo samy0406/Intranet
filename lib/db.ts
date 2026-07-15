@@ -246,7 +246,7 @@ export async function getHokanKigen(itemCode: string, lotNo: string) {
          T1.品目コード        AS "itemCode",
          T2.品名              AS "itemName",
          T1.ロットＮＯ        AS "lotNo",
-         T1.試験回数          AS "testCount",
+         T1.試験回数          AS "inspectCnt",
          TO_CHAR(T1.保管期限, 'YYYY/MM/DD') AS "expiryDate",
          TO_CHAR(T1.メーカ期限,'YYYY/MM/DD') AS "makerExpiry"
        FROM T_SHIKENPLUS T1, M_HINMO T2
@@ -270,7 +270,7 @@ export async function getHokanKigen(itemCode: string, lotNo: string) {
 }
 
 // ── 保管期限を更新する（UPDATE_HOKAN_KIGEN.sql に相当） ──
-export async function updateHokanKigen(itemCode: string, lotNo: string, newDate: string, mailaddress: string): Promise<void> {
+export async function updateHokanKigen(itemCode: string, lotNo: string, newDate: string, mailaddress: string, inspectCnt: string): Promise<void> {
   const conn = await getConnection();
   try {
     const oldResult = await conn.execute(
@@ -394,15 +394,16 @@ export async function updateHokanKigen(itemCode: string, lotNo: string, newDate:
 
     await conn.execute(
       `INSERT INTO MCTEST1.W_TBL_UPDATE_HOKANKIGEN
-         (UPDATE_DATE, MAILADDRESS, HINMO_CD, LOT_NO, OLD_HOKANKIGEN, NEW_HOKANKIGEN)
+         (UPDATE_DATE, MAILADDRESS, HINMO_CD, LOT_NO, OLD_HOKANKIGEN, NEW_HOKANKIGEN, INSPECT_CNT)
        VALUES
          (SYSDATE,
           :mailaddress,
           :itemCode,
           :lotNo,
           TO_DATE(:oldDate, 'YYYY-MM-DD'),
-          TO_DATE(:newDate, 'YYYY-MM-DD'))`,
-      { mailaddress, itemCode, lotNo, oldDate, newDate },
+          TO_DATE(:newDate, 'YYYY-MM-DD'),
+          :inspectCnt)`,
+      { mailaddress, itemCode, lotNo, oldDate, newDate, inspectCnt },
     );
 
     await conn.commit();
