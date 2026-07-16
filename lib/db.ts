@@ -1,6 +1,7 @@
 // lib/db.ts
 import oracledb from "oracledb";
 import { writeErrorLog } from "@/lib/logger";
+import { BusinessError } from "@/lib/errors";
 
 oracledb.initOracleClient({
   libDir: process.env.ORACLE_CLIENT_PATH,
@@ -483,7 +484,7 @@ export async function cancelJudgment(itemCode: string, lotNo: string, mail: stri
   try {
     // ① 更新前に総合判定日を取得（ログ用）
     const selectResult = await conn.execute(
-      `SELECT 総合判定日
+      `SELECT 総合判定日, 試験回数
        FROM MCTEST1.T_SHIKEN
        WHERE 品目コード = :itemCode
          AND ロットＮＯ   = :lotNo
@@ -501,9 +502,10 @@ export async function cancelJudgment(itemCode: string, lotNo: string, mail: stri
 
     const rows = selectResult.rows as Record<string, unknown>[];
     if (!rows || rows.length === 0) {
-      throw new Error("該当データが見つかりません");
+      throw new BusinessError("該当データが見つかりません", 404);
     }
     const shanteiDate = rows[0]["総合判定日"] ?? null;
+    const inspectCnt = rows[0]["試験回数"] ?? null;
 
     // ② T_SHIKEN 更新
     await conn.execute(
@@ -532,10 +534,10 @@ export async function cancelJudgment(itemCode: string, lotNo: string, mail: stri
     // ③ 取消ログ挿入
     await conn.execute(
       `INSERT INTO MCTEST1.W_TBL_CANCEL_SHANTEI
-         (HINMO_CD, LOT_NO, SHANTEI_DATE, MAILADDRESS, CANCEL_DATE)
+         (HINMO_CD, LOT_NO, INSPECT_CNT, SHANTEI_DATE, MAILADDRESS, CANCEL_DATE)
        VALUES
-         (:itemCode, :lotNo, :shanteiDate, :mail, SYSDATE)`,
-      { itemCode, lotNo, shanteiDate, mail },
+         (:itemCode, :lotNo, :inspectCnt, :shanteiDate, :mail, SYSDATE )`,
+      { itemCode, lotNo, inspectCnt, shanteiDate, mail },
     );
 
     await conn.commit();
