@@ -41,7 +41,7 @@ const MENU_ITEMS = [
   },
   {
     href: "/master-up",
-    statusHref: "/master-up/status",
+    statusHref: null, // ← 処理状況ページなし
     label: "マスタup",
     description: "マスタupの申請はこちらから",
     icon: "✏️",
@@ -56,13 +56,13 @@ export default function TopPage() {
       {/* ── ヘッダー ── */}
       <div className="text-center mb-16">
         {/*バッジ*/}
-        <div className="inline-flex items-center gap-2      bg-slat-800 border border-slate-700 rounded-full px-4 py-1.5 mb-6">
-          <span className="w-1.5 h1.5 rounded-full bg-indigo-400 animate-pulse" />
+        <div className="inline-flex items-center gap-2      bg-slate-800 border border-slate-700 rounded-full px-4 py-1.5 mb-6">
+          <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
           <span className="text-xs font-semibold tracking-widest text-slate-400 uppercase">Internal System</span>
         </div>
 
         {/* タイトル */}
-        <h1 className="text-5x1 sm:text-6x1 font-black text-white tracking-tight leading-none mb-3">
+        <h1 className="text-5xl sm:text-6xl font-black text-white tracking-tight leading-none mb-3">
           MC <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400">Systems</span> Desk
         </h1>
         <p className="text-slate-400 text-base mt-4">瀬戸情報システム部 MC担当窓口</p>
@@ -95,29 +95,34 @@ export default function TopPage() {
                 </div>
               </Link>
 
-              {/* 区切り線（PC：縦、スマホ：横） */}
-              <div className="hidden sm:block w-px bg-slate-700 my-4" />
-              <div className="sm:hidden h-px bg-slate-700 mx-6" />
+              {/* statusHref が null の項目は右側ブロックごと描画しない */}
+              {item.statusHref && (
+                <>
+                  {/* 区切り線（PC：縦、スマホ：横） */}
+                  <div className="hidden sm:block w-px bg-slate-700 my-4" />
+                  <div className="sm:hidden h-px bg-slate-700 mx-6" />
 
-              {/* 右側：処理状況を確認 */}
-              <Link
-                href={item.available ? item.statusHref : "#"}
-                className={`sm:w-52 flex items-center gap-3 p-6 group transition-all duration-200
-                  ${item.available ? "hover:bg-slate-700/50" : "opacity-40 cursor-not-allowed pointer-events-none"}`}
-              >
-                <div
-                  className="w-10 h-10 rounded-xl bg-slate-700 group-hover:bg-slate-600
-                  flex items-center justify-center shrink-0 transition-colors"
-                >
-                  <svg className="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                  </svg>
-                </div>
-                <div>
-                  <p className="text-slate-300 font-semibold text-sm group-hover:text-white transition-colors">処理状況を確認</p>
-                  <p className="text-slate-500 text-xs mt-0.5">申請の進捗を見る</p>
-                </div>
-              </Link>
+                  {/* 右側：処理状況を確認 */}
+                  <Link
+                    href={item.available ? item.statusHref : "#"}
+                    className={`sm:w-52 flex items-center gap-3 p-6 group transition-all duration-200
+                      ${item.available ? "hover:bg-slate-700/50" : "opacity-40 cursor-not-allowed pointer-events-none"}`}
+                  >
+                    <div
+                      className="w-10 h-10 rounded-xl bg-slate-700 group-hover:bg-slate-600
+                      flex items-center justify-center shrink-0 transition-colors"
+                    >
+                      <svg className="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-slate-300 font-semibold text-sm group-hover:text-white transition-colors">処理状況を確認</p>
+                      <p className="text-slate-500 text-xs mt-0.5">申請の進捗を見る</p>
+                    </div>
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         ))}
