@@ -2,6 +2,8 @@
 import { NextResponse } from "next/server";
 import { getAllInquiries } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   try {
     // lib/db.ts の getAllInquiries() でOracle DBから全件取得

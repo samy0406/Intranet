@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getHokanKigen } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+
 // GET /api/storage-extension/status?itemCode=ITM-001&lotNo=LOT-2024001
 export async function GET(request: NextRequest) {
   try {

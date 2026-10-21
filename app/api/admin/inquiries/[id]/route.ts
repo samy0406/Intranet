@@ -2,6 +2,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getInquiryById, closeInquiry, updateInquiryField } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+
 // ── GET: 1件取得 ──────────────────────────────────────────
 export async function GET(_request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {

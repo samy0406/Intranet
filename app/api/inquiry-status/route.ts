@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getInquiriesByEmail } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+
 // GET /api/inquiry-status?mail=xxx
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
