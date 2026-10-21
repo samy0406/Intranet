@@ -7,10 +7,9 @@ export const dynamic = "force-dynamic";
 export async function POST(request: NextRequest) {
   try {
     // await = データが届くまで待つ
-    const data = await request.formData();
-    const mail = data.get("mail") as string;
-    const accountCode = data.get("accountCode") as string;
-
+    const body = await request.json(); // ① JSONとして読む
+    const mail = body.mail as string; // ② 「mail」を取り出す
+    const accountCode = body.accountCode as string; // ③ 「accountCode」を取り出す
     if (!mail || !accountCode) {
       return NextResponse.json({ status: "error", message: "必須項目を入力してください" }, { status: 400 });
     }

@@ -4,7 +4,7 @@ import { BackToHomeButton } from "@/components/BackToHomeButton";
 import { useAccountUnlock } from "@/hooks/useAccountUnlock";
 
 export default function AccountUnlockPage() {
-  const { form, errors, status, hasInput, handleChange, handleSubmit, router } = useAccountUnlock();
+  const { form, errors, apiError, status, hasInput, handleChange, handleSubmit, router } = useAccountUnlock();
 
   // ── 送信完了画面 ──────────────────────────────────
   if (status === "done") {
@@ -67,6 +67,8 @@ export default function AccountUnlockPage() {
               <input type="text" name="accountCode" value={form.accountCode} onChange={handleChange} placeholder="例：SET12" className={`${inputClass} font-mono tracking-wider`} />
               {errors.accountCode && <p className={errClass}>⚠ {errors.accountCode}</p>}
             </div>
+
+            {apiError && <div className="mb-4 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm">⚠ {apiError}</div>}
 
             {/* 送信ボタン */}
             <button

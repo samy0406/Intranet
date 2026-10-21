@@ -15,7 +15,7 @@ const URGENCY_COLOR: Record<string, string> = {
 };
 
 export default function HomePage() {
-  const { form, files, screenshotUrls, status, isDragging, errors, hasInput, handleChange, handleFileChange, handleDragOver, handleDragLeave, handleDrop, handlePaste, clearScreenshot, handleSubmit, handleReset, formatSize, setForm, removeFile } = useInquiry();
+  const { form, files, screenshotUrls, status, apiError, isDragging, errors, hasInput, handleChange, handleFileChange, handleDragOver, handleDragLeave, handleDrop, handlePaste, clearScreenshot, handleSubmit, handleReset, formatSize, setForm, removeFile } = useInquiry();
 
   // ── 送信完了画面 ──────────────────────────────────
   if (status === "done") {
@@ -123,6 +123,8 @@ export default function HomePage() {
           </Field>
 
           <FileUpload files={files} isDragging={isDragging} onFileChange={handleFileChange} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop} onClear={removeFile} formatSize={formatSize} />
+
+          {apiError && <div className="px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm">⚠ {apiError}</div>}
 
           <button
             type="submit"
