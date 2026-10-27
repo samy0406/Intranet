@@ -373,9 +373,7 @@ export async function updateHokanKigen(itemCode: string, lotNo: string, newDate:
         品目コード,ロットＮＯ,試験回数,メーカコード,メーカ期限,使用期限,保管期限,
         現品含量,予定数量,登録日時,登録担当者コード,更新カウンタ,更新日時,更新担当者コード,
         'T_SHIKENPLUS', SYSDATE,
-        NVL((SELECT MAX(履歴ＮＯ) FROM T_SHIKENPLUSR
-              WHERE 品目コード = :itemCode AND ロットＮＯ = :lotNo), 0) + 1,
-        '0', 'Tool', 'U', 'Tool'
+        '0', '0', 'Tool', 'U', 'Tool'
       FROM T_SHIKENPLUS
       WHERE 品目コード = :itemCode
         AND ロットＮＯ  = :lotNo
