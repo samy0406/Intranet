@@ -4,6 +4,7 @@ import path from "path";
 import { saveInquiry } from "@/lib/db"; // ← コメントアウトを解除
 import { ApiResponse } from "@/types/inquiry";
 import { getValidAccessToken } from "@/lib/boxTokens";
+import { notifyTeamsInquiry } from "@/lib/teams";
 
 // ── Boxにフォルダを作成してファイルをアップロード ──
 async function sendFilesToBox(
@@ -163,6 +164,17 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
       howtoOpenScreen: screenPath, // フォーム: screenPath → DB: HOWTO_OPEN_SCREEN
       background: message, // フォーム: message    → DB: BACKGROUND
       reqAction: resolution, // フォーム: resolution → DB: REQ_ACTION
+    });
+
+    // ── Teams へ通知 ──────────────────────────────────
+    // awaitしない＝通知の完了を待たずにレスポンスを返す（Box送信と同じ考え方）
+    void notifyTeamsInquiry({
+      id: Number(savedId),
+      title,
+      name,
+      department,
+      urgency,
+      message,
     });
 
     // ── Box へファイルを送信 ──────────────────────────
