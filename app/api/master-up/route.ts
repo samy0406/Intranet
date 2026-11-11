@@ -1,6 +1,7 @@
 // app/api/master-up/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { checkMasterHin, copyMasterHin, saveMasterUpRequest } from "@/lib/db";
+import { checkMasterHin, copyMasterHin, saveMasterUpRequest, assertActiveEmployeeMail } from "@/lib/db";
+import { BusinessError } from "@/lib/errors";
 
 /** OracleエラーオブジェクトからエラーコードをORA-XXXXX形式で取り出す */
 function extractOraCode(err: unknown): string | null {
@@ -39,6 +40,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: `品目コード「${code}」はマスタ登録環境に存在しません。品目コードをご確認ください。` }, { status: 404 });
     }
 
+    // ── 社員マスタに在籍中のメールアドレスか確認（違えば BusinessError が投げられる） ──
+    await assertActiveEmployeeMail(address);
+
     // ── ② マスタコピー実行（copyMasterHin内でwriteErrorLog済み） ──
     try {
       await copyMasterHin(code);
@@ -60,6 +64,11 @@ export async function POST(req: NextRequest) {
       itemName: item.itemName,
     });
   } catch (err) {
+    // 業務エラー（メールアドレス未登録など）は、そのメッセージとステータスで返す
+    if (err instanceof BusinessError) {
+      return NextResponse.json({ message: err.message }, { status: err.status });
+    }
+
     console.error("POST /api/master-up エラー:", err);
     return NextResponse.json({ message: "サーバーエラーが発生しました。", oraCode: extractOraCode(err) }, { status: 500 });
   }

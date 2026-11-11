@@ -292,7 +292,7 @@ export async function updateHokanKigen(itemCode: string, lotNo: string, newDate:
     const oldRows = (oldResult.rows as { oldDate: string | null; inspectCnt: number }[]) ?? [];
     console.log("① SELECT結果:", oldRows);
     if (oldRows.length === 0) {
-      throw new Error("指定された品目コードとロットＮＯに該当するデータが見つかりません");
+      throw new BusinessError("指定された品目コードとロットＮＯに該当するデータが見つかりません", 404);
     }
     const oldDate = oldRows[0].oldDate;
     const inspectCnt = Number(oldRows[0].inspectCnt);
@@ -419,7 +419,7 @@ export async function updateHokanKigen(itemCode: string, lotNo: string, newDate:
       // 主キーが (HINMO_CD, LOT_NO, INSPECT_CNT, NEW_HOKANKIGEN) のため、
       // まったく同じ内容の申請が2回目に来ると ORA-00001 になる
       if ((err as { errorNum?: number }).errorNum === 1) {
-        throw new Error("同じ品目・ロット・試験回数・新保管期限の更新記録が既に存在します（重複申請）");
+        throw new BusinessError("同じ品目・ロット・試験回数・新保管期限の更新記録が既に存在します（重複申請）", 409);
       }
       throw err;
     }
@@ -720,5 +720,35 @@ export async function saveMasterUpRequest(itemCd: string, mailaddress: string): 
     throw err;
   } finally {
     await conn.close();
+  }
+}
+
+// ════════════════════════════════════════════════════
+// 社員マスタ メールアドレスチェック（全フォーム共通）
+// ════════════════════════════════════════════════════
+
+// ── 在籍中の社員のメールアドレスかどうかを返す ──────
+export async function isActiveEmployeeMail(mail: string): Promise<boolean> {
+  const conn = await getConnection();
+  const sql = `SELECT COUNT(*) AS "cnt"
+  FROM FCMST.M050
+  WHERE LOWER(TRIM(M0500110)) = LOWER(TRIM(:mail))
+    AND M0500120 >= TO_NUMBER(TO_CHAR(SYSDATE, 'YYYYMMDD'))`;
+  try {
+    const result = await conn.execute(sql, { mail }, { outFormat: oracledb.OUT_FORMAT_OBJECT });
+    const rows = result.rows as { cnt: number }[];
+    return rows[0].cnt > 0;
+  } catch (err) {
+    writeErrorLog({ func: "isActiveEmployeeMail", sql, err });
+    throw err;
+  } finally {
+    await conn.close();
+  }
+}
+
+// ── 在籍中の社員でなければ BusinessError を投げる（route.ts から呼ぶ用） ──
+export async function assertActiveEmployeeMail(mail: string): Promise<void> {
+  if (!(await isActiveEmployeeMail(mail))) {
+    throw new BusinessError("社員マスタに登録されていないメールアドレスです。入力内容をご確認ください。", 400);
   }
 }

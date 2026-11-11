@@ -1,6 +1,7 @@
 // account-unlock/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { findAccountUnlock, deleteAccountUnlock, insertUnlockRecord } from "@/lib/db";
+import { findAccountUnlock, deleteAccountUnlock, insertUnlockRecord, assertActiveEmployeeMail } from "@/lib/db";
+import { BusinessError } from "@/lib/errors";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ status: "error", message: "現在ログインされていません" }, { status: 400 });
     }
 
+    await assertActiveEmployeeMail(mail);
+
     // T_LOGIN から削除（ロック解除）
     await deleteAccountUnlock(accountCode);
     // W_TBL_UNLOCK に記録を追加
@@ -29,6 +32,11 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ status: "ok", message: "解除しました" });
   } catch (error) {
+    // 業務エラー（メールアドレス未登録など）は、そのメッセージとステータスで返す
+    if (error instanceof BusinessError) {
+      return NextResponse.json({ status: "error", message: error.message }, { status: error.status });
+    }
+    // それ以外は想定外のエラー
     console.error("DB error:", error);
     return NextResponse.json({ status: "error", message: "サーバーエラーが発生しました" }, { status: 500 });
   }
