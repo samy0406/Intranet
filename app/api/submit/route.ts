@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
-import { saveInquiry } from "@/lib/db"; // ← コメントアウトを解除
+import { saveInquiry, assertActiveEmployeeMail } from "@/lib/db";
+import { BusinessError } from "@/lib/errors";
 import { ApiResponse } from "@/types/inquiry";
 import { getValidAccessToken } from "@/lib/boxTokens";
 import { notifyTeamsInquiry } from "@/lib/teams";
@@ -93,6 +94,10 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
     // ── バリデーション ─────────────────────────────────
     if (!name || !title || !urgency || !message || !resolution) {
       return NextResponse.json({ status: "error", message: "必須項目を入力してください" }, { status: 400 });
+    }
+
+    if (mail) {
+      await assertActiveEmployeeMail(mail);
     }
 
     // ── ファイルのバリデーション ──
@@ -190,6 +195,9 @@ export async function POST(request: NextRequest): Promise<NextResponse<ApiRespon
 
     return NextResponse.json({ status: "ok", message: "送信完了しました" });
   } catch (error) {
+    if (error instanceof BusinessError) {
+      return NextResponse.json({ status: "error", message: error.message }, { status: error.status });
+    }
     const msg = error instanceof Error ? error.message : "サーバーエラーが発生しました";
     return NextResponse.json({ status: "error", message: msg }, { status: 500 });
   }
