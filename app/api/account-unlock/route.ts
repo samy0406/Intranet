@@ -1,7 +1,8 @@
 // account-unlock/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { findAccountUnlock, deleteAccountUnlock, insertUnlockRecord, assertActiveEmployeeMail } from "@/lib/db";
+import { findAccountUnlock, unlockAccount, assertActiveEmployeeMail } from "@/lib/db";
 import { BusinessError } from "@/lib/errors";
+import { isAccountType } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
 
@@ -11,12 +12,19 @@ export async function POST(request: NextRequest) {
     const body = await request.json(); // ① JSONとして読む
     const mail = body.mail as string; // ② 「mail」を取り出す
     const accountCode = body.accountCode as string; // ③ 「accountCode」を取り出す
-    if (!mail || !accountCode) {
+    const accountType: unknown = body.accountType;
+
+    if (!mail || !accountCode || !accountType) {
       return NextResponse.json({ status: "error", message: "必須項目を入力してください" }, { status: 400 });
     }
 
+    // 定義済みの種類以外は、ここで弾く
+    if (!isAccountType(accountType)) {
+      return NextResponse.json({ status: "error", message: "アカウントの種類が正しくありません" }, { status: 400 });
+    }
+
     // 存在確認
-    const exists = await findAccountUnlock(accountCode);
+    const exists = await findAccountUnlock(accountType, accountCode);
 
     if (!exists) {
       // T_LOGIN にない = 現在ログインされていない
@@ -25,10 +33,8 @@ export async function POST(request: NextRequest) {
 
     await assertActiveEmployeeMail(mail);
 
-    // T_LOGIN から削除（ロック解除）
-    await deleteAccountUnlock(accountCode);
-    // W_TBL_UNLOCK に記録を追加
-    await insertUnlockRecord(accountCode, mail);
+    // 記録の追加とロック解除をまとめて実行
+    await unlockAccount(accountType, accountCode, mail);
 
     return NextResponse.json({ status: "ok", message: "解除しました" });
   } catch (error) {

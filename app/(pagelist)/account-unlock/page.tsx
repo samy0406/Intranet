@@ -2,6 +2,7 @@
 
 import { BackToHomeButton } from "@/components/BackToHomeButton";
 import { useAccountUnlock } from "@/hooks/useAccountUnlock";
+import { ACCOUNT_TYPES } from "@/lib/constants";
 
 export default function AccountUnlockPage() {
   const { form, errors, apiError, status, hasInput, handleChange, handleSubmit, router } = useAccountUnlock();
@@ -57,6 +58,22 @@ export default function AccountUnlockPage() {
               </label>
               <input type="email" name="mail" value={form.mail} onChange={handleChange} placeholder="例：taro_yamada@hoyu.co.jp" className={inputClass} />
               {errors.mail && <p className={errClass}>⚠ {errors.mail}</p>}
+            </div>
+
+            {/* アカウントの種類 */}
+            <div id="field-accountType" tabIndex={-1} className="scroll-mt-6">
+              <label className={labelClass}>
+                アカウントの種類 <span className="text-rose-400">*</span>
+              </label>
+              <select name="accountType" value={form.accountType} onChange={handleChange} className={inputClass}>
+                <option value="">選択してください</option>
+                {ACCOUNT_TYPES.map((t) => (
+                  <option key={t.value} value={t.value}>
+                    {t.label}
+                  </option>
+                ))}
+              </select>
+              {errors.accountType && <p className={errClass}>⚠ {errors.accountType}</p>}
             </div>
 
             {/* アカウントコード */}

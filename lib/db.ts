@@ -2,6 +2,7 @@
 import oracledb from "oracledb";
 import { writeErrorLog } from "@/lib/logger";
 import { BusinessError } from "@/lib/errors";
+import type { AccountType } from "@/lib/constants";
 
 oracledb.initOracleClient({
   libDir: process.env.ORACLE_CLIENT_PATH,
@@ -11,6 +12,13 @@ const DB_CONFIG: oracledb.ConnectionAttributes = {
   user: process.env.ORACLE_USER,
   password: process.env.ORACLE_PASSWORD,
   connectString: process.env.ORACLE_CONN_STRING,
+};
+
+// 社員マスタ(FCMST.M050)があるDBへの接続情報
+const EMP_DB_CONFIG: oracledb.ConnectionAttributes = {
+  user: process.env.ORACLE_EMP_USER,
+  password: process.env.ORACLE_EMP_PASSWORD,
+  connectString: process.env.ORACLE_EMP_CONN_STRING,
 };
 
 // コピー元（マスタ登録環境）とコピー先（本番環境）のスキーマ
@@ -189,10 +197,38 @@ export async function getInquiriesByEmail(mail: string) {
 // アカウントロック解除
 // ════════════════════════════════════════════════════
 
-export async function findAccountUnlock(accountCode: string): Promise<boolean> {
-  const conn = await getConnection();
+// アカウント種類ごとの設定
+//   table    : 参照するテーブル
+//   idColumn : アカウントコードが入っている列
+//   connect  : そのテーブルがあるDBへの接続を取得する関数
+type AccountTableConfig = {
+  table: string;
+  idColumn: string;
+  connect: () => Promise<oracledb.Connection>;
+};
+
+// ★ 実際のテーブル名・列名・接続先に書き換える
+const ACCOUNT_TABLES: Record<AccountType, AccountTableConfig> = {
+  // 現行の種類:今までと同じDBなので、既存の getConnection をそのまま使う
+  aka: { table: "T_LOGIN", idColumn: "USER_ID", connect: getConnection },
+  kuro: {
+    table: "T_LOGIN",
+    idColumn: "USER_ID",
+    connect: () =>
+      oracledb.getConnection({
+        user: process.env.kuro_USER,
+        password: process.env.kuro_PASSWORD,
+        connectString: process.env.kuro_CONNECT_STRING,
+      }),
+  },
+};
+
+// 存在確認:選択された種類のDB・テーブルを見る
+export async function findAccountUnlock(accountType: AccountType, accountCode: string): Promise<boolean> {
+  const { table, idColumn, connect } = ACCOUNT_TABLES[accountType];
+  const conn = await connect();
   try {
-    const result = await conn.execute(`SELECT COUNT(*) AS ULOGIN FROM T_LOGIN WHERE USER_ID = :accountCode`, { accountCode }, { outFormat: oracledb.OUT_FORMAT_OBJECT });
+    const result = await conn.execute(`SELECT COUNT(*) AS ULOGIN FROM ${table} WHERE ${idColumn} = :accountCode`, { accountCode }, { outFormat: oracledb.OUT_FORMAT_OBJECT });
     const rows = result.rows as { ULOGIN: number }[];
     return rows[0].ULOGIN > 0;
   } finally {
@@ -200,37 +236,43 @@ export async function findAccountUnlock(accountCode: string): Promise<boolean> {
   }
 }
 
-// 解除申請用：対象のレコードを削除する
-export async function deleteAccountUnlock(accountCode: string, conn?: oracledb.Connection): Promise<void> {
-  const connection = conn ?? (await getConnection());
+// 選択された種類のDB・テーブルからレコードを削除する(ロック解除)
+async function deleteAccountUnlock(accountType: AccountType, accountCode: string): Promise<void> {
+  const { table, idColumn, connect } = ACCOUNT_TABLES[accountType];
+  const conn = await connect();
   try {
-    await connection.execute(`DELETE FROM T_LOGIN WHERE USER_ID = :accountCode`, { accountCode });
-    if (!conn) {
-      await connection.commit();
-    }
+    await conn.execute(`DELETE FROM ${table} WHERE ${idColumn} = :accountCode`, { accountCode });
+    await conn.commit();
   } finally {
-    if (!conn) {
-      await connection.close();
-    }
+    await conn.close();
   }
 }
 
-// W_TBL_UNLOCK にロック解除記録をINSERTする
-export async function insertUnlockRecord(accountCode: string, mailaddress: string, conn?: oracledb.Connection): Promise<void> {
-  const connection = conn ?? (await getConnection());
+// W_TBL_UNLOCK に解除記録をINSERTする(commit は呼び出し側で行う)
+async function insertUnlockRecord(conn: oracledb.Connection, accountType: AccountType, accountCode: string, mailaddress: string): Promise<void> {
+  await conn.execute(
+    `INSERT INTO MCTEST1.W_TBL_UNLOCK (UNLOCK_DATE, USER_ID, MAILADDRESS, ACCOUNT_TYPE)
+     VALUES (SYSDATE, :accountCode, :mailaddress, :accountType)`,
+    { accountCode, mailaddress, accountType },
+  );
+}
+
+// ロック解除の本体:記録と削除をまとめて行う
+export async function unlockAccount(accountType: AccountType, accountCode: string, mailaddress: string): Promise<void> {
+  const logConn = await getConnection(); // W_TBL_UNLOCK があるDB
   try {
-    await connection.execute(
-      `INSERT INTO MCTEST1.W_TBL_UNLOCK (UNLOCK_DATE, USER_ID, MAILADDRESS)
-       VALUES (SYSDATE, :accountCode, :mailaddress)`,
-      { accountCode, mailaddress },
-    );
-    if (!conn) {
-      await connection.commit();
-    }
+    // ① 記録をINSERT(まだ確定しない)
+    await insertUnlockRecord(logConn, accountType, accountCode, mailaddress);
+    // ② 種類ごとのDBで削除して確定
+    await deleteAccountUnlock(accountType, accountCode);
+    // ③ 削除が成功したので、記録も確定
+    await logConn.commit();
+  } catch (error) {
+    // ②で失敗したら、①の記録を取り消す
+    await logConn.rollback();
+    throw error;
   } finally {
-    if (!conn) {
-      await connection.close();
-    }
+    await logConn.close();
   }
 }
 
@@ -728,8 +770,9 @@ export async function saveMasterUpRequest(itemCd: string, mailaddress: string): 
 // ════════════════════════════════════════════════════
 
 // ── 在籍中の社員のメールアドレスかどうかを返す ──────
+// ── 在籍中の社員のメールアドレスかどうかを返す ──────
 export async function isActiveEmployeeMail(mail: string): Promise<boolean> {
-  const conn = await getConnection();
+  const conn = await oracledb.getConnection(EMP_DB_CONFIG); // ★社員マスタ側のDBに接続する
   const sql = `SELECT COUNT(*) AS "cnt"
   FROM FCMST.M050
   WHERE LOWER(TRIM(M0500110)) = LOWER(TRIM(:mail))

@@ -25,3 +25,17 @@ export const URGENCY_STYLE: Record<UrgencyLevel, string> = {
   中: "bg-yellow-100 text-yellow-700",
   低: "bg-slate-100 text-slate-500",
 };
+
+// ── アカウントロック解除:アカウントの種類
+export const ACCOUNT_TYPES = [
+  { value: "aka", label: "赤hoyu(リリース前テスト環境)" },
+  { value: "kuro", label: "黒hoyu" },
+] as const;
+
+// 型を、上の配列から自動で作る
+export type AccountType = (typeof ACCOUNT_TYPES)[number]["value"];
+
+// 受け取った値が、定義済みの種類かどうかを判定する
+export function isAccountType(value: unknown): value is AccountType {
+  return ACCOUNT_TYPES.some((t) => t.value === value);
+}

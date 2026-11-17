@@ -4,22 +4,25 @@
 import { useState, ChangeEvent, FormEvent } from "react";
 import { validateMail, focusFirstError } from "@/lib/formUtils";
 import { useRouter } from "next/navigation";
+import type { AccountType } from "@/lib/constants";
 
 // ── 型定義 ──────────────────────────────────────────
-export type AccountUnlockForm = { mail: string; accountCode: string };
-export type AccountUnlockErrors = { mail?: string; accountCode?: string };
+// accountType の "" は「まだ選んでいない」状態
+export type AccountUnlockForm = { mail: string; accountType: AccountType | ""; accountCode: string };
+export type AccountUnlockErrors = { mail?: string; accountType?: string; accountCode?: string };
 export type Status = "idle" | "loading" | "done";
 
 function validate(form: AccountUnlockForm): AccountUnlockErrors {
   const errors: AccountUnlockErrors = {};
   const mailError = validateMail(form.mail);
   if (mailError) errors.mail = mailError;
+  if (!form.accountType) errors.accountType = "アカウントの種類を選択してください";
   if (!form.accountCode.trim()) errors.accountCode = "アカウントコードを入力してください";
   return errors;
 }
 
 export function useAccountUnlock() {
-  const [form, setForm] = useState<AccountUnlockForm>({ mail: "", accountCode: "" });
+  const [form, setForm] = useState<AccountUnlockForm>({ mail: "", accountType: "", accountCode: "" });
   const [errors, setErrors] = useState<AccountUnlockErrors>({});
   const [apiError, setApiError] = useState("");
   const [status, setStatus] = useState<Status>("idle");
@@ -27,7 +30,8 @@ export function useAccountUnlock() {
 
   const hasInput = Object.values(form).some((v) => v !== "");
 
-  const handleChange = (e: ChangeEvent<HTMLInputElement>) => setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  // <input> と <select> の両方で使えるようにする
+  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -35,7 +39,7 @@ export function useAccountUnlock() {
     setErrors(newErrors);
 
     if (Object.keys(newErrors).length > 0) {
-      focusFirstError(["mail", "accountCode"], newErrors);
+      focusFirstError(["mail", "accountType", "accountCode"], newErrors);
       return;
     }
 

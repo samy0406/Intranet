@@ -2,9 +2,10 @@
 
 import { BackToHomeButton } from "@/components/BackToHomeButton";
 import { useAccountUnlockStatus } from "@/hooks/useAccountUnlockStatus";
+import { ACCOUNT_TYPES } from "@/lib/constants";
 
 export default function AccountUnlockStatusPage() {
-  const { accountCode, result, status, error, handleChange, handleSearch } = useAccountUnlockStatus();
+  const { accountType, accountCode, result, status, error, handleTypeChange, handleChange, handleSearch } = useAccountUnlockStatus();
 
   return (
     <main className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
@@ -27,11 +28,26 @@ export default function AccountUnlockStatusPage() {
 
           {/* 検索フォーム */}
           <form onSubmit={handleSearch} className="space-y-4">
+            {/* アカウントの種類 */}
+            <div>
+              <label className={labelClass}>アカウントの種類</label>
+              <select value={accountType} onChange={handleTypeChange} className={inputClass}>
+                <option value="">選択してください</option>
+                {ACCOUNT_TYPES.map((t) => (
+                  <option key={t.value} value={t.value}>
+                    {t.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* アカウントコード */}
             <div>
               <label className={labelClass}>アカウントコード</label>
               <input type="text" value={accountCode} onChange={handleChange} placeholder="例：SET12" className={`${inputClass} font-mono tracking-wider`} />
-              {error && <p className={errClass}>⚠ {error}</p>}
             </div>
+
+            {error && <p className={errClass}>⚠ {error}</p>}
 
             <button
               type="submit"
