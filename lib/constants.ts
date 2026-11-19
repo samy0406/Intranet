@@ -42,7 +42,7 @@ export function isAccountType(value: unknown): value is AccountType {
 
 // ── マスタup:複数品目コード
 // 1回の申請で処理できる品目コードの上限(処理時間・DB負荷の歯止め)
-export const MASTER_UP_MAX_ITEMS = 50;
+export const MASTER_UP_MAX_ITEMS = 100;
 // 品目コードの最大文字数（W_TBL_MASTER_UP_REQ.HINMO_CD が VARCHAR2(40) のため）
 export const MASTER_UP_ITEM_CODE_MAX_LENGTH = 40;
 
