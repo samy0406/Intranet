@@ -749,16 +749,28 @@ export async function copyMasterHin(itemCode: string): Promise<void> {
   }
 }
 
-/** 申請ログをW_TBL_MASTER_UP_REQに保存する */
-export async function saveMasterUpRequest(itemCd: string, mailaddress: string): Promise<void> {
+/**
+ * 申請履歴をW_TBL_MASTER_UP_REQに保存する（成功・失敗どちらも記録）
+ * M_UP_DATE は DEFAULT SYSDATE で自動的に入る
+ * コピー処理とは別の接続・別コミットなので、コピーがロールバックされても履歴は残る
+ */
+export async function saveMasterUpRequest(params: { itemCode: string; mail: string; result: "OK" | "NG"; errorMsg?: string; oraCode?: string | null }): Promise<void> {
   const conn = await getConnection();
-  const sql = `INSERT INTO MCTEST1.W_TBL_MASTER_UP_REQ (HINMO_CD, MAILADDRESS) VALUES (:itemCd, :mailaddress)`;
+  const sql = `INSERT INTO MCTEST1.W_TBL_MASTER_UP_REQ (HINMO_CD, MAILADDRESS, RESULT, ERROR_MSG, ORA_CODE)
+  VALUES (:itemCd, :mailaddress, :result, :errorMsg, :oraCode)`;
   try {
-    await conn.execute(sql, { itemCd, mailaddress });
+    await conn.execute(sql, {
+      itemCd: params.itemCode,
+      mailaddress: params.mail,
+      result: params.result,
+      // VARCHAR2(4000) はバイト数の上限。日本語は1文字3バイトなので1000文字で切っておく
+      errorMsg: params.errorMsg ? params.errorMsg.slice(0, 1000) : null,
+      oraCode: params.oraCode ?? null,
+    });
     await conn.commit();
   } catch (err) {
     await conn.rollback();
-    writeErrorLog({ func: "saveMasterUpRequest", itemCode: itemCd, sql, err });
+    writeErrorLog({ func: "saveMasterUpRequest", itemCode: params.itemCode, sql, err });
     throw err;
   } finally {
     await conn.close();

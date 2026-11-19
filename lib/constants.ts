@@ -39,3 +39,24 @@ export type AccountType = (typeof ACCOUNT_TYPES)[number]["value"];
 export function isAccountType(value: unknown): value is AccountType {
   return ACCOUNT_TYPES.some((t) => t.value === value);
 }
+
+// ── マスタup:複数品目コード
+// 1回の申請で処理できる品目コードの上限(処理時間・DB負荷の歯止め)
+export const MASTER_UP_MAX_ITEMS = 50;
+// 品目コードの最大文字数（W_TBL_MASTER_UP_REQ.HINMO_CD が VARCHAR2(40) のため）
+export const MASTER_UP_ITEM_CODE_MAX_LENGTH = 40;
+
+/**
+ * テキストエリアの入力を品目コードの配列に変換する。
+ * - 改行・カンマ・スペース・タブ区切りに対応(Excelからの貼り付けもOK)
+ * - 前後の空白を除去し、空行は捨てる
+ * - 重複は1つにまとめる(入力順は維持)
+ * 画面(hook)とAPI(route.ts)の両方から使う
+ */
+export function parseItemCodes(text: string): string[] {
+  const codes = text
+    .split(/[\s,、]+/) // 改行・空白・タブ・カンマ・読点のどれでも区切る
+    .map((c) => c.trim())
+    .filter((c) => c !== "");
+  return [...new Set(codes)]; // Set で重複を除去 → 配列に戻す
+}
